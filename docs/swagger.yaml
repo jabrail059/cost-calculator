@@ -1,0 +1,134 @@
+openapi: 3.0.0
+
+info:
+  title: Расчёт себестоимости при позаказном производстве
+  description: API для загрузки CSV и получения тестовых данных о заказах и себестоимости
+  version: 0.0.1
+
+servers:
+  - url: http://localhost:8080
+    description: Локальный сервер разработки
+
+paths:
+  /upload:
+    post:
+      summary: Загрузка CSV-файла с данными о затратах
+      description: Принимает файл и тип данных, парсит и сохраняет в БД
+      operationId: uploadFile
+
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [boms, labor, overhead]
+                  description: Тип загружаемых данных
+                file:
+                  type: string
+                  format: binary
+                  description: CSV-файл с разделителем ;
+
+      responses:
+        '200':
+          description: Успешная загрузка и обработка
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        '400':
+          description: Ошибка при обработке
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /mocks/orders:
+    get:
+      summary: Получить тестовый список заказов
+      responses:
+        '200':
+          description: Список заказов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    start_date:
+                      type: string
+                      example: "09-03-2026"
+                    end_date:
+                      type: string
+                      example: "10-03-2026"
+                    total_cost:
+                      type: integer
+                      example: 100
+                    status:
+                      type: string
+                      example: "Выполнен"
+                    error_id:
+                      type: integer
+                      nullable: true
+                      example: null
+        '400':
+          description: Ошибка
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /mocks/orders/{id}/cost:
+    get:
+      summary: Получить тестовую себестоимость заказа по его ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID заказа
+      responses:
+        '200':
+          description: Детализация себестоимости
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:
+                    type: integer
+                    example: 1
+                  materials:
+                    type: number
+                    format: float
+                    example: 80.50
+                  labor:
+                    type: number
+                    format: float
+                    example: 30.00
+                  overhead:
+                    type: number
+                    format: float
+                    example: 15.75
+                  total:
+                    type: number
+                    format: float
+                    example: 126.25
+        '400':
+          description: Ошибка
+          content:
+            text/plain:
+              schema:
+                type: string

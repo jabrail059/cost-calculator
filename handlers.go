@@ -17,6 +17,11 @@ func DoTransaktions(insertFunc func(*sql.Tx) error) error {
 
 	err = insertFunc(tx)
 	if err != nil {
+		if csvErr, ok := err.(*CSVError); ok {
+			tx.Rollback()
+			SaveError(csvErr)
+			return fmt.Errorf("Ошибка вставки данных %w", err)
+		}
 		tx.Rollback()
 		return fmt.Errorf("Ошибка вставки данных %w", err)
 	}
@@ -31,7 +36,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		err := r.ParseMultipartForm(10 << 20)
 		if err != nil {
-			http.Error(w, "Ошибка парсинга формы "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Ошибка парсинга формы "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -39,14 +44,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		file, _, err := r.FormFile("file")
 
 		if err != nil {
-			http.Error(w, "Ошибка получения файла "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Ошибка получения файла "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer file.Close()
 
 		temp, err := os.CreateTemp("", "*")
 		if err != nil {
-			http.Error(w, "Ошибка создания временного файла "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Ошибка создания временного файла "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -55,7 +60,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		_, err = io.Copy(temp, file)
 		if err != nil {
-			http.Error(w, "Ошибка копирования данных "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Ошибка копирования данных "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -63,42 +68,57 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		case "boms":
 			items, err := ParseBOM(temp.Name())
 			if err != nil {
-				http.Error(w, "Ошибка парсинга BOM "+err.Error(), http.StatusBadRequest)
+				if csvErr, ok := err.(*CSVError); ok {
+					SaveError(csvErr)
+					http.Error(w, "Ошибка парсинга BOM "+err.Error(), http.StatusBadRequest)
+					return
+				}
+				http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 			err = DoTransaktions(func(tx *sql.Tx) error {
 				return InsertBOMItems(tx, items)
 			})
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 		case "labor":
 			items, err := ParseLabor(temp.Name())
 			if err != nil {
-				http.Error(w, "Ошибка парсинга Labor "+err.Error(), http.StatusBadRequest)
+				if csvErr, ok := err.(*CSVError); ok {
+					SaveError(csvErr)
+					http.Error(w, "Ошибка парсинга Labor "+err.Error(), http.StatusBadRequest)
+					return
+				}
+				http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 			err = DoTransaktions(func(tx *sql.Tx) error {
 				return InsertLaborItems(tx, items)
 			})
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 		case "overhead":
 			items, err := ParseOverhead(temp.Name())
 			if err != nil {
-				http.Error(w, "Ошибка парсинга Overhead "+err.Error(), http.StatusBadRequest)
+				if csvErr, ok := err.(*CSVError); ok {
+					SaveError(csvErr)
+					http.Error(w, "Ошибка парсинга Overhead "+err.Error(), http.StatusBadRequest)
+					return
+				}
+				http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 			err = DoTransaktions(func(tx *sql.Tx) error {
 				return InsertOverheadItems(tx, items)
 			})
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 

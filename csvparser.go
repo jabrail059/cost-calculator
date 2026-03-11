@@ -2,15 +2,21 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
 func ParseBOM(path string) ([]BOMItem, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, &CSVError{
+			FileName: filepath.Base(path),
+			Row:      0,
+			Column:   "",
+			Cause:    "Не удалось открыть файл",
+		}
 	}
 	defer file.Close()
 
@@ -19,109 +25,208 @@ func ParseBOM(path string) ([]BOMItem, error) {
 
 	var items []BOMItem
 
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-	for i, record := range records {
+	i := 0
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			return items, nil
+		}
 		if i == 0 {
 			continue
 		}
+		i++
+		if err != nil {
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      0,
+				Column:   "",
+				Cause:    "Не удалось считать данные из файла",
+			}
+		}
+
 		if len(record) < 4 {
-			return nil, fmt.Errorf("Строка %d: недостаточно полей!", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "",
+				Cause:    "Недостаточно полей!",
+			}
 		}
 		orderID, err := strconv.Atoi(record[0])
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное OrderID", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "OrderId",
+				Cause:    "некорректное OrderID",
+			}
 		}
 		quantity, err := strconv.ParseFloat(record[1], 64)
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное Quantity", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "Quantity",
+				Cause:    "Некорректное Quantity",
+			}
 		}
 		unitCost, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное UnitCost", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "UnitCost",
+				Cause:    "Некорректное UnitCost",
+			}
 		}
 		item := BOMItem{
 			OrderID:      orderID,
 			Quantity:     quantity,
 			UnitCost:     unitCost,
-			MaterialCode: record[1],
+			MaterialCode: record[3],
 		}
 		items = append(items, item)
 	}
-	return items, nil
 }
 
 func ParseOverhead(path string) ([]OverheadItem, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, &CSVError{
+			FileName: filepath.Base(path),
+			Row:      0,
+			Column:   "",
+			Cause:    "Не удалось открыть файл",
+		}
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	reader.Comma = ';'
 
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
 	var items []OverheadItem
-	for i, record := range records {
+	i := 0
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			return items, nil
+		}
 		if i == 0 {
 			continue
 		}
+		i++
+		if err != nil {
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      0,
+				Column:   "",
+				Cause:    "Не удалось считать данные из файла",
+			}
+		}
+		if len(record) < 4 {
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "",
+				Cause:    "Недостаточно полей!",
+			}
+		}
 		orderID, err := strconv.Atoi(record[0])
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное OrderID", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "OrderId",
+				Cause:    "Некорректное OrderID",
+			}
 		}
-		amount, err := strconv.ParseFloat(record[2], 64)
+		amount, err := strconv.ParseFloat(record[3], 64)
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное Amount", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "Amount",
+				Cause:    "Некорректное Amount",
+			}
 		}
 		item := OverheadItem{
 			OrderID:  orderID,
-			ProdType: record[1],
+			Date:     record[1],
+			ProdType: record[2],
 			Amount:   amount,
 		}
 		items = append(items, item)
 	}
-	return items, nil
 }
 
 func ParseLabor(path string) ([]LaborItem, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, &CSVError{
+			FileName: filepath.Base(path),
+			Row:      0,
+			Column:   "",
+			Cause:    "Не удалось открыть файл",
+		}
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	reader.Comma = ';'
 
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
 	var items []LaborItem
-	for i, record := range records {
+	i := 0
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			return items, nil
+		}
 		if i == 0 {
 			continue
 		}
+		i++
+		if err != nil {
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      0,
+				Column:   "",
+				Cause:    "Не удалось считать данные из файла",
+			}
+		}
+		if len(record) < 4 {
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "",
+				Cause:    "Недостаточно полей!",
+			}
+		}
 		orderID, err := strconv.Atoi(record[0])
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное OrderId", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "Orderid",
+				Cause:    "Некорректное OrderId",
+			}
 		}
 		rate, err := strconv.ParseFloat(record[1], 64)
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное Rate", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "Rate",
+				Cause:    "Некорректное Rate",
+			}
 		}
 		hours, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
-			return nil, fmt.Errorf("Строка %d: некорректное Hours", i+1)
+			return nil, &CSVError{
+				FileName: filepath.Base(path),
+				Row:      i + 1,
+				Column:   "Hours",
+				Cause:    "Некорректное Hours",
+			}
 		}
 		item := LaborItem{
 			OrderID: orderID,
@@ -130,5 +235,4 @@ func ParseLabor(path string) ([]LaborItem, error) {
 		}
 		items = append(items, item)
 	}
-	return items, nil
 }

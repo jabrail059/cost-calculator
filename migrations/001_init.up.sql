@@ -16,6 +16,7 @@ create table orders(
 create table overhead(
 	id serial primary key,
 	order_id integer not null references orders(id) on delete cascade,
+	date timestamp not null,
 	prod_type varchar(50) not null,
 	amount decimal(15, 2) not null check(amount >= 0)
 );
@@ -25,7 +26,7 @@ create table boms(
 	order_id integer not null references orders(id) on delete cascade,
 	quantity decimal(15, 3) not null check(quantity > 0),
 	unit_cost decimal(15, 2) not null check(unit_cost >= 0),
-	material_code integer not null
+	material_code varchar(10) not null
 );
 
 create table labor(
