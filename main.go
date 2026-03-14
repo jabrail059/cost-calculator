@@ -24,6 +24,10 @@ func main() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/upload", UploadHandler)
+	router.HandleFunc("/orders", GetOrdersHandler).Methods("GET")
+	router.HandleFunc("/orders/{id:[0-9]+}", GetOrderByIdHandler).Methods("GET")
+	router.HandleFunc("/orders/{id:[0-9]+}/cost", GetOrderCostHandler).Methods("GET")
+
 	router.HandleFunc("/mocks/orders", MockOrdersHandler)
 	router.HandleFunc("/mocks/orders/{id:[0-9]+}/cost", MockOrderCostHandler)
 

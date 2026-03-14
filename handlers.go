@@ -7,6 +7,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 func DoTransaktions(insertFunc func(*sql.Tx) error) error {
@@ -76,6 +79,17 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+			err = ValidateOrders(ExtractOrderIds(items))
+			if err != nil {
+				SaveError(&CSVError{
+					FileName: typeFile,
+					Row:      0,
+					Column:   "",
+					Cause:    err.Error(),
+				})
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			err = DoTransaktions(func(tx *sql.Tx) error {
 				return InsertBOMItems(tx, items)
 			})
@@ -93,6 +107,17 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			err = ValidateOrders(ExtractOrderIds(items))
+			if err != nil {
+				SaveError(&CSVError{
+					FileName: typeFile,
+					Row:      0,
+					Column:   "",
+					Cause:    err.Error(),
+				})
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			err = DoTransaktions(func(tx *sql.Tx) error {
@@ -114,6 +139,17 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+			err = ValidateOrders(ExtractOrderIds(items))
+			if err != nil {
+				SaveError(&CSVError{
+					FileName: typeFile,
+					Row:      0,
+					Column:   "",
+					Cause:    err.Error(),
+				})
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			err = DoTransaktions(func(tx *sql.Tx) error {
 				return InsertOverheadItems(tx, items)
 			})
@@ -133,4 +169,60 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func GetOrdersHandler(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("select id, start_date, end_date, total_cost, status, error_id from orders")
+	if err != nil {
+		http.Error(w, "Не удалось получить данные", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	orders := []OrderResponse{}
+	for rows.Next() {
+		order := OrderResponse{}
+		err = rows.Scan(&order.Id, &order.StartDate, &order.EndDate, &order.TotalCost, &order.Status, &order.ErrorId)
+		if err != nil {
+			http.Error(w, "Не удалось считать данные", http.StatusInternalServerError)
+			return
+		}
+		orders = append(orders, order)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(orders)
+}
+
+func GetOrderByIdHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	rows := db.QueryRow("select id, start_date, end_date, total_cost, status, error_id from orders where id = $1", id)
+	order := OrderResponse{}
+	err := rows.Scan(&order.Id, &order.StartDate, &order.EndDate, &order.TotalCost, &order.Status, &order.ErrorId)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Заказ не найден", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Ошибка базы данных", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(order)
+}
+
+func GetOrderCostHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Неверный формат идентификатора заказа", http.StatusBadRequest)
+		return
+	}
+	costResp, err := CalculateCost(id)
+	if err != nil {
+		http.Error(w, "Не удалось посчитать себестоимость", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(costResp)
 }

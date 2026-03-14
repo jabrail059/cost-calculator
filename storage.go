@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+
+	"github.com/lib/pq"
 )
 
 func InsertBOMItems(tx *sql.Tx, items []BOMItem) error {
@@ -42,10 +44,108 @@ func SaveError(csvErr *CSVError) error {
 	}
 	_, err := db.Exec("insert into errors(cause, row_and_column) values ($1, $2)",
 		"Файл: "+csvErr.FileName+", Ошибка: "+csvErr.Cause,
-		"Строка: "+strconv.FormatInt(int64(csvErr.Row), 64)+", Стоблец: "+csvErr.Column)
+		"Строка: "+strconv.FormatInt(int64(csvErr.Row), 64)+", Столбец: "+csvErr.Column)
 	return err
 }
 
 func (err *CSVError) Error() string {
 	return fmt.Sprintf("Файл: %s, строка: %d, столбец: %s, ошибка: %s", err.FileName, err.Row, err.Column, err.Cause)
+}
+
+func CalculateCost(OrderID int) (*CostResponse, error) {
+	bomRows, err := db.Query("select quantity, unit_cost from boms where order_id = $1", OrderID)
+	if err != nil {
+		return nil, err
+	}
+	defer bomRows.Close()
+
+	laborRows, err := db.Query("select rate, hours from labor where order_id = $1", OrderID)
+	if err != nil {
+		return nil, err
+	}
+	defer laborRows.Close()
+
+	overheadRows, err := db.Query("select amount from overhead where order_id = $1", OrderID)
+	if err != nil {
+		return nil, err
+	}
+	defer overheadRows.Close()
+
+	costResp := CostResponse{}
+
+	for bomRows.Next() {
+		var cost, qnty float64
+		err := bomRows.Scan(&qnty, &cost)
+		if err != nil {
+			return nil, err
+		}
+		costResp.Materials += cost * qnty
+	}
+
+	for laborRows.Next() {
+		var rt, hrs float64
+		err := laborRows.Scan(&rt, &hrs)
+		if err != nil {
+			return nil, err
+		}
+		costResp.Labor += rt * hrs
+	}
+
+	for overheadRows.Next() {
+		var amt float64
+		err := overheadRows.Scan(&amt)
+		if err != nil {
+			return nil, err
+		}
+		costResp.Overhead += amt
+	}
+	costResp.Total = costResp.Labor + costResp.Materials + costResp.Overhead
+	return &costResp, nil
+}
+
+func ValidateOrders(orderIds []int) error {
+	if len(orderIds) == 0 {
+		return nil
+	}
+
+	problem := make([]int, 0)
+	found := make(map[int]string)
+
+	rows, err := db.Query("select id, status from orders where id = ANY($1)", pq.Array(orderIds))
+	if err != nil {
+		return fmt.Errorf("Ошибка при проверке заказа: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			id   int
+			stat string
+		)
+		err = rows.Scan(&id, &stat)
+		if err != nil {
+			return err
+		}
+		found[id] = stat
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("Ошибка при обработке строк: %w", err)
+	}
+
+	for _, value := range orderIds {
+		if _, ok := found[value]; !ok {
+			problem = append(problem, value)
+		}
+	}
+
+	for value, status := range found {
+		if status == "Выполнен" || status == "Закрыт" {
+			problem = append(problem, value)
+		}
+	}
+
+	if len(problem) != 0 {
+		return fmt.Errorf("Следующие заказы не были найдены или имеют запрещённый статус: %v", problem)
+	}
+	return nil
 }

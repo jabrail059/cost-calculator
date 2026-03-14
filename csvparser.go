@@ -9,10 +9,11 @@ import (
 )
 
 func ParseBOM(path string) ([]BOMItem, error) {
+	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, &CSVError{
-			FileName: filepath.Base(path),
+			FileName: fileName,
 			Row:      0,
 			Column:   "",
 			Cause:    "Не удалось открыть файл",
@@ -25,62 +26,62 @@ func ParseBOM(path string) ([]BOMItem, error) {
 
 	var items []BOMItem
 
-	i := 0
+	i := -1
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
 			return items, nil
 		}
-		if i == 0 {
-			continue
-		}
-		i++
 		if err != nil {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      0,
 				Column:   "",
 				Cause:    "Не удалось считать данные из файла",
 			}
 		}
+		i++
+		if i == 0 {
+			continue
+		}
 
-		if len(record) < 4 {
+		if len(record) != 4 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
-				Cause:    "Недостаточно полей!",
+				Cause:    "Неккоректное число полей!",
 			}
 		}
-		orderID, err := strconv.Atoi(record[0])
-		if err != nil {
+		order_id, err := strconv.Atoi(record[0])
+		if err != nil || order_id <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
-				Cause:    "некорректное OrderID",
+				Cause:    "Некорректное OrderId",
 			}
 		}
 		quantity, err := strconv.ParseFloat(record[1], 64)
-		if err != nil {
+		if err != nil || quantity <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Quantity",
 				Cause:    "Некорректное Quantity",
 			}
 		}
 		unitCost, err := strconv.ParseFloat(record[2], 64)
-		if err != nil {
+		if err != nil || unitCost <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "UnitCost",
 				Cause:    "Некорректное UnitCost",
 			}
 		}
 		item := BOMItem{
-			OrderID:      orderID,
+			OrderID:      order_id,
 			Quantity:     quantity,
 			UnitCost:     unitCost,
 			MaterialCode: record[3],
@@ -90,10 +91,11 @@ func ParseBOM(path string) ([]BOMItem, error) {
 }
 
 func ParseOverhead(path string) ([]OverheadItem, error) {
+	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, &CSVError{
-			FileName: filepath.Base(path),
+			FileName: fileName,
 			Row:      0,
 			Column:   "",
 			Cause:    "Не удалось открыть файл",
@@ -105,52 +107,52 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 	reader.Comma = ';'
 
 	var items []OverheadItem
-	i := 0
+	i := -1
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
 			return items, nil
 		}
-		if i == 0 {
-			continue
-		}
-		i++
 		if err != nil {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      0,
 				Column:   "",
 				Cause:    "Не удалось считать данные из файла",
 			}
 		}
-		if len(record) < 4 {
+		i++
+		if i == 0 {
+			continue
+		}
+		if len(record) != 4 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
-				Cause:    "Недостаточно полей!",
+				Cause:    "Неккоректное число полей!",
 			}
 		}
-		orderID, err := strconv.Atoi(record[0])
-		if err != nil {
+		order_id, err := strconv.Atoi(record[0])
+		if err != nil || order_id <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
-				Cause:    "Некорректное OrderID",
+				Cause:    "Некорректное OrderId",
 			}
 		}
 		amount, err := strconv.ParseFloat(record[3], 64)
-		if err != nil {
+		if err != nil || amount <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Amount",
 				Cause:    "Некорректное Amount",
 			}
 		}
 		item := OverheadItem{
-			OrderID:  orderID,
+			OrderID:  order_id,
 			Date:     record[1],
 			ProdType: record[2],
 			Amount:   amount,
@@ -160,10 +162,11 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 }
 
 func ParseLabor(path string) ([]LaborItem, error) {
+	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, &CSVError{
-			FileName: filepath.Base(path),
+			FileName: fileName,
 			Row:      0,
 			Column:   "",
 			Cause:    "Не удалось открыть файл",
@@ -175,61 +178,61 @@ func ParseLabor(path string) ([]LaborItem, error) {
 	reader.Comma = ';'
 
 	var items []LaborItem
-	i := 0
+	i := -1
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
 			return items, nil
 		}
-		if i == 0 {
-			continue
-		}
-		i++
 		if err != nil {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      0,
 				Column:   "",
 				Cause:    "Не удалось считать данные из файла",
 			}
 		}
-		if len(record) < 4 {
+		i++
+		if i == 0 {
+			continue
+		}
+		if len(record) != 4 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
-				Cause:    "Недостаточно полей!",
+				Cause:    "Неккоректное число полей!",
 			}
 		}
-		orderID, err := strconv.Atoi(record[0])
-		if err != nil {
+		order_id, err := strconv.Atoi(record[0])
+		if err != nil || order_id <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
-				Column:   "Orderid",
+				Column:   "OrderId",
 				Cause:    "Некорректное OrderId",
 			}
 		}
 		rate, err := strconv.ParseFloat(record[1], 64)
-		if err != nil {
+		if err != nil || rate <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Rate",
 				Cause:    "Некорректное Rate",
 			}
 		}
 		hours, err := strconv.ParseFloat(record[2], 64)
-		if err != nil {
+		if err != nil || hours <= 0 {
 			return nil, &CSVError{
-				FileName: filepath.Base(path),
+				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Hours",
 				Cause:    "Некорректное Hours",
 			}
 		}
 		item := LaborItem{
-			OrderID: orderID,
+			OrderID: order_id,
 			Rate:    rate,
 			Hours:   hours,
 		}
