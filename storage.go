@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
+	"log"
 
 	"github.com/lib/pq"
 )
@@ -43,8 +45,8 @@ func SaveError(csvErr *CSVError) error {
 		return fmt.Errorf("CSVError is nil")
 	}
 	_, err := db.Exec("insert into errors(cause, row_and_column) values ($1, $2)",
-		"Файл: "+csvErr.FileName+", Ошибка: "+csvErr.Cause,
-		"Строка: "+strconv.FormatInt(int64(csvErr.Row), 64)+", Столбец: "+csvErr.Column)
+		fmt.Sprintf("Файл: %s, Ошибка: %s", csvErr.FileName, csvErr.Cause),
+		fmt.Sprintf("Строка: %s, Столбец: %s", strconv.Itoa(csvErr.Row), csvErr.Column))
 	return err
 }
 
@@ -53,6 +55,10 @@ func (err *CSVError) Error() string {
 }
 
 func CalculateCost(OrderID int) (*CostResponse, error) {
+	start := time.Now()
+	defer func() {
+		log.Printf("CalculateCost for order %d took %v", OrderID, time.Since(start))
+	}()
 	bomRows, err := db.Query("select quantity, unit_cost from boms where order_id = $1", OrderID)
 	if err != nil {
 		return nil, err
@@ -139,7 +145,7 @@ func ValidateOrders(orderIds []int) error {
 	}
 
 	for value, status := range found {
-		if status == "Выполнен" || status == "Закрыт" {
+		if status == "completed" || status == "closed" {
 			problem = append(problem, value)
 		}
 	}

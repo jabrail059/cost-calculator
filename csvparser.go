@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 func ParseBOM(path string) ([]BOMItem, error) {
@@ -142,6 +144,17 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 				Cause:    "Некорректное OrderId",
 			}
 		}
+
+		err = ValidateDate(record[1])
+		if err != nil {
+			return nil, &CSVError{
+				FileName: fileName,
+				Row:      i + 1,
+				Column:   "Date",
+				Cause:    err.Error(),
+			}
+		}
+
 		amount, err := strconv.ParseFloat(record[3], 64)
 		if err != nil || amount <= 0 {
 			return nil, &CSVError{
@@ -196,7 +209,7 @@ func ParseLabor(path string) ([]LaborItem, error) {
 		if i == 0 {
 			continue
 		}
-		if len(record) != 4 {
+		if len(record) != 3 {
 			return nil, &CSVError{
 				FileName: fileName,
 				Row:      i + 1,
@@ -238,4 +251,12 @@ func ParseLabor(path string) ([]LaborItem, error) {
 		}
 		items = append(items, item)
 	}
+}
+
+func ValidateDate(DateStr string) error {
+	_, err := time.Parse("2006-01-02", DateStr)
+	if err != nil {
+		return fmt.Errorf("Некорректная дата: %w", err)
+	}
+	return nil
 }

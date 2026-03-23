@@ -26,7 +26,7 @@ create table boms(
 	order_id integer not null references orders(id) on delete cascade,
 	quantity decimal(15, 3) not null check(quantity > 0),
 	unit_cost decimal(15, 2) not null check(unit_cost >= 0),
-	material_code varchar(10) not null
+	material_code text not null
 );
 
 create table labor(

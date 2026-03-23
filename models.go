@@ -60,3 +60,10 @@ type CostResponse struct {
 	Overhead  float64 `json:"overhead"`
 	Total     float64 `json:"total"`
 }
+
+type CalculationResult struct {
+	BomCost      float64 `json:"bomCost"`
+	LaborCost    float64 `json:"laborCost"`
+	OverheadCost float64 `json:"overheadCost"`
+	TotalCost    float64 `json:"totalCost"`
+}

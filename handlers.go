@@ -226,3 +226,130 @@ func GetOrderCostHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(costResp)
 }
+
+func CalculateFromFilesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "Ошибка парсинга формы "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	bomFile, _, err := r.FormFile("bom")
+	if err != nil {
+		http.Error(w, "Не удалось загрузить файл Bom "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer bomFile.Close()
+
+	laborFile, _, err := r.FormFile("labor")
+	if err != nil {
+		http.Error(w, "Не удалось загрузить файл Labor "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer laborFile.Close()
+
+	overheadFile, _, err := r.FormFile("overhead")
+	if err != nil {
+		http.Error(w, "Не удалось загрузить файл Overhead "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer overheadFile.Close()
+
+	bomTemp, err := os.CreateTemp("", "*")
+	if err != nil {
+		http.Error(w, "Ошибка создания временного файла "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer bomTemp.Close()
+	defer os.Remove(bomTemp.Name())
+
+	_, err = io.Copy(bomTemp, bomFile)
+	if err != nil {
+		http.Error(w, "Ошибка копирования данных "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	laborTemp, err := os.CreateTemp("", "*")
+	if err != nil {
+		http.Error(w, "Ошибка создания временного файла "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer laborTemp.Close()
+	defer os.Remove(laborTemp.Name())
+
+	_, err = io.Copy(laborTemp, laborFile)
+	if err != nil {
+		http.Error(w, "Ошибка копирования данных "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	overheadTemp, err := os.CreateTemp("", "*")
+	if err != nil {
+		http.Error(w, "Ошибка создания временного файла "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer overheadTemp.Close()
+	defer os.Remove(overheadTemp.Name())
+
+	_, err = io.Copy(overheadTemp, overheadFile)
+	if err != nil {
+		http.Error(w, "Ошибка копирования данных "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	bomItems, err := ParseBOM(bomTemp.Name())
+	if err != nil {
+		if csvErr, ok := err.(*CSVError); ok {
+			SaveError(csvErr)
+			http.Error(w, "Ошибка парсинга BOM "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	laborItems, err := ParseLabor(laborTemp.Name())
+	if err != nil {
+		if csvErr, ok := err.(*CSVError); ok {
+			SaveError(csvErr)
+			http.Error(w, "Ошибка парсинга Labor "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	overheadItems, err := ParseOverhead(overheadTemp.Name())
+	if err != nil {
+		if csvErr, ok := err.(*CSVError); ok {
+			SaveError(csvErr)
+			http.Error(w, "Ошибка парсинга Overhead "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Ошибка "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var bomTotal, laborTotal, overheadTotal float64
+	for _, item := range bomItems {
+		bomTotal += item.Quantity * item.UnitCost
+	}
+
+	for _, item := range laborItems {
+		laborTotal += item.Hours * item.Rate
+	}
+
+	for _, item := range overheadItems {
+		overheadTotal += item.Amount
+	}
+
+	result := CalculationResult{
+		BomCost:      bomTotal,
+		LaborCost:    laborTotal,
+		OverheadCost: overheadTotal,
+		TotalCost:    bomTotal + laborTotal + overheadTotal,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
