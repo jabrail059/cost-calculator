@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -12,7 +14,20 @@ import (
 var db *sql.DB
 
 func main() {
-	exec, err := sql.Open("postgres", "user=postgres password=78552306 dbname=proddb sslmode=disable")
+	host := os.Getenv("DB_HOST")
+	if host == "" {
+		host = "localhost"
+	}
+	port := os.Getenv("DB_PORT")
+	if port == "" {
+		port = "5432"
+	}
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	name := os.Getenv("DB_NAME")
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, name)
+
+	exec, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -20,6 +35,9 @@ func main() {
 	err = db.Ping()
 	if err != nil {
 		log.Fatal(err)
+	}
+	if err := runMigrations(db); err != nil {
+		log.Fatalf("Ошибка при выполнении миграций: %v", err)
 	}
 	router := mux.NewRouter()
 
@@ -34,7 +52,12 @@ func main() {
 
 	handler := corsMiddleware(router)
 	log.Println("Server is listening...")
-	log.Fatal(http.ListenAndServe(":3000", handler))
+
+	port = os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
