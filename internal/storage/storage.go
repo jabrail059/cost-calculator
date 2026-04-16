@@ -1,16 +1,34 @@
-package main
+package storage
 
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
-	"log"
 
 	"github.com/lib/pq"
+	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
 )
 
-func InsertBOMItems(tx *sql.Tx, items []BOMItem) error {
+var db *sql.DB
+
+func SetDB(database *sql.DB) {
+	db = database
+}
+
+func DB() *sql.DB {
+	return db
+}
+
+type CSVError struct {
+	FileName string
+	Row      int
+	Column   string
+	Cause    string
+}
+
+func InsertBOMItems(tx *sql.Tx, items []models.BOMItem) error {
 	for _, item := range items {
 		_, err := tx.Exec("insert into boms(order_id, quantity, unit_cost, material_code) values($1, $2, $3, $4)", item.OrderID, item.Quantity, item.UnitCost, item.MaterialCode)
 		if err != nil {
@@ -20,7 +38,7 @@ func InsertBOMItems(tx *sql.Tx, items []BOMItem) error {
 	return nil
 }
 
-func InsertLaborItems(tx *sql.Tx, items []LaborItem) error {
+func InsertLaborItems(tx *sql.Tx, items []models.LaborItem) error {
 	for _, item := range items {
 		_, err := tx.Exec("insert into labor(order_id, rate, hours) values($1, $2, $3)", item.OrderID, item.Rate, item.Hours)
 		if err != nil {
@@ -30,7 +48,7 @@ func InsertLaborItems(tx *sql.Tx, items []LaborItem) error {
 	return nil
 }
 
-func InsertOverheadItems(tx *sql.Tx, items []OverheadItem) error {
+func InsertOverheadItems(tx *sql.Tx, items []models.OverheadItem) error {
 	for _, item := range items {
 		_, err := tx.Exec("insert into overhead(order_id, date, prod_type, amount) values($1, $2, $3, $4)", item.OrderID, item.Date, item.ProdType, item.Amount)
 		if err != nil {
@@ -54,7 +72,7 @@ func (err *CSVError) Error() string {
 	return fmt.Sprintf("Файл: %s, строка: %d, столбец: %s, ошибка: %s", err.FileName, err.Row, err.Column, err.Cause)
 }
 
-func CalculateCost(OrderID int) (*CostResponse, error) {
+func CalculateCost(OrderID int) (*models.CostResponse, error) {
 	start := time.Now()
 	defer func() {
 		log.Printf("CalculateCost for order %d took %v", OrderID, time.Since(start))
@@ -77,7 +95,7 @@ func CalculateCost(OrderID int) (*CostResponse, error) {
 	}
 	defer overheadRows.Close()
 
-	costResp := CostResponse{}
+	costResp := models.CostResponse{}
 
 	for bomRows.Next() {
 		var cost, qnty float64
@@ -152,6 +170,16 @@ func ValidateOrders(orderIds []int) error {
 
 	if len(problem) != 0 {
 		return fmt.Errorf("Следующие заказы не были найдены или имеют запрещённый статус: %v", problem)
+	}
+	return nil
+}
+
+func SaveUploadLog(tx *sql.Tx, orderIDs []int, filetype string, changedBy string) error {
+	for _, orderId := range orderIDs {
+		_, err := tx.Exec("insert into upload_log(order_id, file_type, changed_by) values ($1, $2, $3)", orderId, filetype, changedBy)
+		if err != nil {
+			return fmt.Errorf("Ошибка логирования изменения данных: %w", err)
+		}
 	}
 	return nil
 }

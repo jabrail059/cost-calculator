@@ -1,4 +1,4 @@
-package main
+package models
 
 type MockOrder struct {
 	Id        int    `json:"id"`

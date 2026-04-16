@@ -1,21 +1,16 @@
 openapi: 3.0.0
-
 info:
   title: Расчёт себестоимости при позаказном производстве
-  description: API для загрузки CSV и получения тестовых данных о заказах и себестоимости
-  version: 0.0.1
-
+  description: API для загрузки CSV, расчёта себестоимости и получения данных о заказах
+  version: 1.0.0
 servers:
   - url: http://localhost:8080
-    description: Локальный сервер разработки
-
+    description: Локальный сервер (или ngrok-туннель)
 paths:
   /upload:
     post:
-      summary: Загрузка CSV-файла с данными о затратах
-      description: Принимает файл и тип данных, парсит и сохраняет в БД
+      summary: Загрузка CSV-файла (BOM, Labor, Overhead) в базу данных
       operationId: uploadFile
-
       requestBody:
         required: true
         content:
@@ -30,11 +25,10 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: CSV-файл с разделителем ;
-
+                  description: CSV-файл с разделителем ; (кодировка UTF-8)
       responses:
         '200':
-          description: Успешная загрузка и обработка
+          description: Успешная загрузка и импорт
           content:
             application/json:
               schema:
@@ -44,91 +38,230 @@ paths:
                     type: string
                     example: ok
         '400':
-          description: Ошибка при обработке
+          description: Ошибка валидации или парсинга
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Внутренняя ошибка сервера
           content:
             text/plain:
               schema:
                 type: string
 
-  /mocks/orders:
+  /orders:
     get:
-      summary: Получить тестовый список заказов
+      summary: Получить список всех заказов
+      operationId: getOrders
       responses:
         '200':
-          description: Список заказов
+          description: Успешный ответ
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    id:
-                      type: integer
-                      example: 1
-                    start_date:
-                      type: string
-                      example: "09-03-2026"
-                    end_date:
-                      type: string
-                      example: "10-03-2026"
-                    total_cost:
-                      type: integer
-                      example: 100
-                    status:
-                      type: string
-                      example: "Выполнен"
-                    error_id:
-                      type: integer
-                      nullable: true
-                      example: null
-        '400':
-          description: Ошибка
-          content:
-            text/plain:
-              schema:
-                type: string
+                  $ref: '#/components/schemas/OrderResponse'
+        '500':
+          description: Ошибка сервера
 
-  /mocks/orders/{id}/cost:
+  /orders/{id}:
     get:
-      summary: Получить тестовую себестоимость заказа по его ID
+      summary: Получить детальную информацию о заказе по ID
+      operationId: getOrderById
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
-          description: ID заказа
+          description: Числовой идентификатор заказа
       responses:
         '200':
-          description: Детализация себестоимости
+          description: Успешный ответ
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  order_id:
-                    type: integer
-                    example: 1
-                  materials:
-                    type: number
-                    format: float
-                    example: 80.50
-                  labor:
-                    type: number
-                    format: float
-                    example: 30.00
-                  overhead:
-                    type: number
-                    format: float
-                    example: 15.75
-                  total:
-                    type: number
-                    format: float
-                    example: 126.25
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          description: Заказ не найден
+        '500':
+          description: Ошибка сервера
+
+  /orders/{id}/cost:
+    get:
+      summary: Рассчитать себестоимость заказа по ID
+      operationId: getOrderCost
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Числовой идентификатор заказа
+      responses:
+        '200':
+          description: Успешный расчёт
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostResponse'
+        '500':
+          description: Ошибка сервера
+
+  /api/calculate:
+    post:
+      summary: Предварительный расчёт себестоимости по трём файлам (без сохранения в БД)
+      operationId: calculateFromFiles
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                bom:
+                  type: string
+                  format: binary
+                  description: CSV файл состава заказа (BOM)
+                labor:
+                  type: string
+                  format: binary
+                  description: CSV файл трудозатрат (Labor)
+                overhead:
+                  type: string
+                  format: binary
+                  description: CSV файл накладных расходов (Overhead)
+      responses:
+        '200':
+          description: Расчёт выполнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResult'
         '400':
-          description: Ошибка
+          description: Ошибка парсинга или неверный формат
           content:
             text/plain:
               schema:
                 type: string
+        '500':
+          description: Внутренняя ошибка сервера
+
+  /mocks/orders:
+    get:
+      summary: (Мок) Получить тестовый список заказов
+      responses:
+        '200':
+          description: Тестовый массив заказов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MockOrder'
+  /mocks/orders/{id}/cost:
+    get:
+      summary: (Мок) Получить тестовую себестоимость заказа
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Тестовый объект себестоимости
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MockOrderCost'
+
+components:
+  schemas:
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        total_cost:
+          type: number
+          format: float
+        status:
+          type: string
+        error_id:
+          type: integer
+          nullable: true
+    CostResponse:
+      type: object
+      properties:
+        materials:
+          type: number
+          format: float
+        labor:
+          type: number
+          format: float
+        overhead:
+          type: number
+          format: float
+        total:
+          type: number
+          format: float
+    CalculationResult:
+      type: object
+      properties:
+        bomCost:
+          type: number
+          format: float
+        laborCost:
+          type: number
+          format: float
+        overheadCost:
+          type: number
+          format: float
+        totalCost:
+          type: number
+          format: float
+    MockOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+        start_date:
+          type: string
+          example: "09-03-2026"
+        end_date:
+          type: string
+          example: "10-03-2026"
+        total_cost:
+          type: integer
+        status:
+          type: string
+        error_id:
+          type: integer
+          nullable: true
+    MockOrderCost:
+      type: object
+      properties:
+        order_id:
+          type: integer
+        materials:
+          type: number
+          format: float
+        labor:
+          type: number
+          format: float
+        overhead:
+          type: number
+          format: float
+        total:
+          type: number
+          format: float

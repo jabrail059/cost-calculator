@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"encoding/csv"
@@ -8,13 +8,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
+	"gitverse.ru/topit/12-40_team20_Zueva/internal/storage"
 )
 
-func ParseBOM(path string) ([]BOMItem, error) {
+func ParseBOM(path string) ([]models.BOMItem, error) {
 	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, &CSVError{
+		return nil, &storage.CSVError{
 			FileName: fileName,
 			Row:      0,
 			Column:   "",
@@ -26,7 +29,7 @@ func ParseBOM(path string) ([]BOMItem, error) {
 	reader := csv.NewReader(file)
 	reader.Comma = ';'
 
-	var items []BOMItem
+	var items []models.BOMItem
 
 	i := -1
 	for {
@@ -35,7 +38,7 @@ func ParseBOM(path string) ([]BOMItem, error) {
 			return items, nil
 		}
 		if err != nil {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      0,
 				Column:   "",
@@ -48,7 +51,7 @@ func ParseBOM(path string) ([]BOMItem, error) {
 		}
 
 		if len(record) != 4 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
@@ -57,7 +60,7 @@ func ParseBOM(path string) ([]BOMItem, error) {
 		}
 		order_id, err := strconv.Atoi(record[0])
 		if err != nil || order_id <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
@@ -66,7 +69,7 @@ func ParseBOM(path string) ([]BOMItem, error) {
 		}
 		quantity, err := strconv.ParseFloat(record[1], 64)
 		if err != nil || quantity <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Quantity",
@@ -75,14 +78,14 @@ func ParseBOM(path string) ([]BOMItem, error) {
 		}
 		unitCost, err := strconv.ParseFloat(record[2], 64)
 		if err != nil || unitCost <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "UnitCost",
 				Cause:    "Некорректное UnitCost",
 			}
 		}
-		item := BOMItem{
+		item := models.BOMItem{
 			OrderID:      order_id,
 			Quantity:     quantity,
 			UnitCost:     unitCost,
@@ -92,11 +95,11 @@ func ParseBOM(path string) ([]BOMItem, error) {
 	}
 }
 
-func ParseOverhead(path string) ([]OverheadItem, error) {
+func ParseOverhead(path string) ([]models.OverheadItem, error) {
 	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, &CSVError{
+		return nil, &storage.CSVError{
 			FileName: fileName,
 			Row:      0,
 			Column:   "",
@@ -108,7 +111,7 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 	reader := csv.NewReader(file)
 	reader.Comma = ';'
 
-	var items []OverheadItem
+	var items []models.OverheadItem
 	i := -1
 	for {
 		record, err := reader.Read()
@@ -116,7 +119,7 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 			return items, nil
 		}
 		if err != nil {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      0,
 				Column:   "",
@@ -128,7 +131,7 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 			continue
 		}
 		if len(record) != 4 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
@@ -137,7 +140,7 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 		}
 		order_id, err := strconv.Atoi(record[0])
 		if err != nil || order_id <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
@@ -147,7 +150,7 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 
 		err = ValidateDate(record[1])
 		if err != nil {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Date",
@@ -157,14 +160,14 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 
 		amount, err := strconv.ParseFloat(record[3], 64)
 		if err != nil || amount <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Amount",
 				Cause:    "Некорректное Amount",
 			}
 		}
-		item := OverheadItem{
+		item := models.OverheadItem{
 			OrderID:  order_id,
 			Date:     record[1],
 			ProdType: record[2],
@@ -174,11 +177,11 @@ func ParseOverhead(path string) ([]OverheadItem, error) {
 	}
 }
 
-func ParseLabor(path string) ([]LaborItem, error) {
+func ParseLabor(path string) ([]models.LaborItem, error) {
 	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, &CSVError{
+		return nil, &storage.CSVError{
 			FileName: fileName,
 			Row:      0,
 			Column:   "",
@@ -190,7 +193,7 @@ func ParseLabor(path string) ([]LaborItem, error) {
 	reader := csv.NewReader(file)
 	reader.Comma = ';'
 
-	var items []LaborItem
+	var items []models.LaborItem
 	i := -1
 	for {
 		record, err := reader.Read()
@@ -198,7 +201,7 @@ func ParseLabor(path string) ([]LaborItem, error) {
 			return items, nil
 		}
 		if err != nil {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      0,
 				Column:   "",
@@ -210,7 +213,7 @@ func ParseLabor(path string) ([]LaborItem, error) {
 			continue
 		}
 		if len(record) != 3 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
@@ -219,7 +222,7 @@ func ParseLabor(path string) ([]LaborItem, error) {
 		}
 		order_id, err := strconv.Atoi(record[0])
 		if err != nil || order_id <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
@@ -228,7 +231,7 @@ func ParseLabor(path string) ([]LaborItem, error) {
 		}
 		rate, err := strconv.ParseFloat(record[1], 64)
 		if err != nil || rate <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Rate",
@@ -237,14 +240,14 @@ func ParseLabor(path string) ([]LaborItem, error) {
 		}
 		hours, err := strconv.ParseFloat(record[2], 64)
 		if err != nil || hours <= 0 {
-			return nil, &CSVError{
+			return nil, &storage.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Hours",
 				Cause:    "Некорректное Hours",
 			}
 		}
-		item := LaborItem{
+		item := models.LaborItem{
 			OrderID: order_id,
 			Rate:    rate,
 			Hours:   hours,
