@@ -1,2 +1,4 @@
 testdata/
 .gocache/
+web/
+.gomodcache/

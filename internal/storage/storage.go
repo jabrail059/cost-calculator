@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var db *sql.DB
@@ -182,4 +183,33 @@ func SaveUploadLog(tx *sql.Tx, orderIDs []int, filetype string, changedBy string
 		}
 	}
 	return nil
+}
+
+func CreateUser(email string, passwordHash string, role string) (int, error) {
+	var id int
+	err := db.QueryRow("INSERT INTO users(email, password_hash, role, created_at) VALUES ($1, $2, $3, $4) RETURNING id",
+		email,
+		passwordHash,
+		role).Scan(&id)
+	return id, err
+}
+
+func GetUserEmail(email string) (*models.User, error) {
+	var user models.User
+	err := db.QueryRow("SELECT id, email, password_hash, role, created_at FROM users WHERE email=$1",
+		email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(bytes), err
+}
+
+func CheckPasswordHash(password string, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }

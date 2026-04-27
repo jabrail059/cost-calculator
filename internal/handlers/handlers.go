@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
@@ -461,4 +462,55 @@ func GetOrderOverheadHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(items)
+}
+
+func CreateOrderHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+	var req models.CreateOrderRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Не удалось получить данные", http.StatusBadRequest)
+		return
+	}
+	var exists int
+	err = storage.DB().QueryRow("SELECT 1 FROM orders WHERE id=$1", req.ID).Scan(&exists)
+	if err == nil {
+		http.Error(w, "Заказ с таким id уже существует", http.StatusConflict)
+		return
+	}
+	if err != sql.ErrNoRows {
+		http.Error(w, "Не удалось получить данные из базы данных", http.StatusInternalServerError)
+		return
+	}
+	start_date, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		http.Error(w, "Не удалось получить start_date", http.StatusInternalServerError)
+		return
+	}
+	var end_date interface{}
+	if req.EndDate == "" {
+		end_date = nil
+	} else {
+		end_date, err = time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			http.Error(w, "Не удалось получить end_date", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	_, err = storage.DB().Exec("INSERT INTO orders(id, start_date, end_date, status) VALUES ($1, $2, $3, $4)",
+		req.ID,
+		start_date,
+		end_date,
+		req.Status)
+	if err != nil {
+		http.Error(w, "Не удалось создать заказ", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "id": req.ID})
 }

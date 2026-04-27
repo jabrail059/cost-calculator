@@ -91,3 +91,18 @@ type Log struct {
 	UploadedAt time.Time `json:"uploaded_at"`
 	ChangedBy  string    `json:"changed_by"`
 }
+
+type User struct {
+	ID           int       `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"` // не возвращаем в JSON
+	Role         string    `json:"role"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type CreateOrderRequest struct {
+	ID        int    `json:"id"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+	Status    string `json:"json"`
+}

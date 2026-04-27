@@ -30,6 +30,8 @@ func main() {
 	router.HandleFunc("/upload", handlers.UploadHandler).Methods("POST")
 
 	router.HandleFunc("/orders", handlers.GetOrdersHandler).Methods("GET")
+	router.HandleFunc("/orders", handlers.CreateOrderHandler).Methods("POST")
+
 	router.HandleFunc("/orders/{id:[0-9]+}", handlers.GetOrderByIdHandler).Methods("GET")
 	router.HandleFunc("/orders/{id:[0-9]+}/cost", handlers.GetOrderCostHandler).Methods("GET")
 	router.HandleFunc("/orders/{id:[0-9]+}/changes", handlers.GetOrderChangesHandler).Methods("GET")
@@ -41,10 +43,14 @@ func main() {
 	router.HandleFunc("/orders/{id}/overhead", handlers.GetOrderOverheadHandler).Methods("GET")
 
 	router.HandleFunc("/reports/generate", handlers.GenerateReportHandler).Methods("POST")
+	router.HandleFunc("/api/generate-excel", handlers.GenerateExcelHandler).Methods("POST")
+
+	router.HandleFunc("/api/auth/register", handlers.RegisterHandler).Methods("POST")
 
 	router.HandleFunc("/mocks/orders", handlers.MockOrdersHandler)
 	router.HandleFunc("/mocks/orders/{id:[0-9]+}/cost", handlers.MockOrderCostHandler)
 
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web")))
 	log.Println("Server is listening...")
 
 	log.Fatal(http.ListenAndServe(":8080", router))
