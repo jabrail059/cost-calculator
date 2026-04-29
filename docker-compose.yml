@@ -29,7 +29,7 @@ services:
       DB_NAME: proddb
       ONEC_URL: "http://onec-server:8080/generate"
     volumes:
-      - ./migrations:/migrations   # если хочешь потом запускать миграции из контейнера
+      - ./migrations:/migrations
 
 volumes:
   postgres_data:

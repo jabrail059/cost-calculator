@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
 )
 
@@ -36,8 +36,7 @@ func MockOrdersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func MockOrderCostHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := chi.URLParam(r, "id")
 	w.Header().Set("Content-Type", "application/json")
 	switch id {
 	case "1":

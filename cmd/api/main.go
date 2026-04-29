@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/handlers"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/middleware"
@@ -13,6 +15,13 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system env")
+	}
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("JWT-ключ не задан")
+	}
 	connStr := "user=postgres password=78552306 dbname=proddb sslmode=disable"
 	exec, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -24,34 +33,34 @@ func main() {
 		log.Fatal(err)
 	}
 
-	router := mux.NewRouter()
-	router.Use(middleware.CorsMiddleware)
+	r := chi.NewRouter()
+	r.Use(middleware.CorsMiddleware)
 
-	router.HandleFunc("/upload", handlers.UploadHandler).Methods("POST")
+	r.With(middleware.AuthMiddleware).Post("/upload", handlers.UploadHandler)
+	r.Get("/orders", handlers.GetOrdersHandler)
+	r.With(middleware.AuthMiddleware).Post("/orders", handlers.CreateOrderHandler)
 
-	router.HandleFunc("/orders", handlers.GetOrdersHandler).Methods("GET")
-	router.HandleFunc("/orders", handlers.CreateOrderHandler).Methods("POST")
+	r.Get("/orders/{id}", handlers.GetOrderByIdHandler)
+	r.Get("/orders/{id}/cost", handlers.GetOrderCostHandler)
+	r.Get("/orders/{id}/changes", handlers.GetOrderChangesHandler)
 
-	router.HandleFunc("/orders/{id:[0-9]+}", handlers.GetOrderByIdHandler).Methods("GET")
-	router.HandleFunc("/orders/{id:[0-9]+}/cost", handlers.GetOrderCostHandler).Methods("GET")
-	router.HandleFunc("/orders/{id:[0-9]+}/changes", handlers.GetOrderChangesHandler).Methods("GET")
+	r.With(middleware.AuthMiddleware).Post("/api/calculate", handlers.CalculateFromFilesHandler)
 
-	router.HandleFunc("/api/calculate", handlers.CalculateFromFilesHandler).Methods("POST")
+	r.Get("/orders/{id}/boms", handlers.GetOrderBOMsHandler)
+	r.Get("/orders/{id}/labor", handlers.GetOrderLaborHandler)
+	r.Get("/orders/{id}/overhead", handlers.GetOrderOverheadHandler)
 
-	router.HandleFunc("/orders/{id}/boms", handlers.GetOrderBOMsHandler).Methods("GET")
-	router.HandleFunc("/orders/{id}/labor", handlers.GetOrderLaborHandler).Methods("GET")
-	router.HandleFunc("/orders/{id}/overhead", handlers.GetOrderOverheadHandler).Methods("GET")
+	r.With(middleware.AuthMiddleware).Post("/reports/generate", handlers.GenerateReportHandler)
+	r.With(middleware.AuthMiddleware).Post("/api/generate-excel", handlers.GenerateExcelHandler)
 
-	router.HandleFunc("/reports/generate", handlers.GenerateReportHandler).Methods("POST")
-	router.HandleFunc("/api/generate-excel", handlers.GenerateExcelHandler).Methods("POST")
+	r.Post("/api/auth/register", handlers.RegisterHandler)
+	r.Post("/api/auth/login", handlers.LoginHandler)
 
-	router.HandleFunc("/api/auth/register", handlers.RegisterHandler).Methods("POST")
+	r.HandleFunc("/mocks/orders", handlers.MockOrdersHandler)
+	r.HandleFunc("/mocks/orders/{id:[0-9]+}/cost", handlers.MockOrderCostHandler)
 
-	router.HandleFunc("/mocks/orders", handlers.MockOrdersHandler)
-	router.HandleFunc("/mocks/orders/{id:[0-9]+}/cost", handlers.MockOrderCostHandler)
-
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web")))
+	r.Handle("/*", http.FileServer(http.Dir("./web")))
 	log.Println("Server is listening...")
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(":8080", r))
 }

@@ -95,7 +95,7 @@ type Log struct {
 type User struct {
 	ID           int       `json:"id"`
 	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // не возвращаем в JSON
+	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 }

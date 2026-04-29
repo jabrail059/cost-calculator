@@ -1,22 +1,47 @@
 openapi: 3.0.0
 info:
-  title: Расчёт себестоимости при позаказном производстве
-  description: API для загрузки CSV, расчёта себестоимости и получения данных о заказах
+  title: Расчет себестоимости при позаказном производстве
+  description: API для загрузки CSV, расчета себестоимости, работы с заказами и формирования отчетов.
   version: 1.0.0
+
 servers:
   - url: http://localhost:8080
-    description: Локальный сервер (или ngrok-туннель)
+    description: Локальный сервер
+
+tags:
+  - name: Uploads
+    description: Загрузка CSV-файлов
+  - name: Orders
+    description: Заказы и данные по заказам
+  - name: Calculations
+    description: Расчеты без сохранения в БД
+  - name: Reports
+    description: Формирование отчетов
+  - name: Mocks
+    description: Тестовые данные
+
 paths:
   /upload:
     post:
-      summary: Загрузка CSV-файла (BOM, Labor, Overhead) в базу данных
+      tags: [Uploads]
+      summary: Загрузить CSV-файл в базу данных
+      description: Загружает один CSV-файл типа BOM, Labor или Overhead. Имя пользователя для журнала изменений можно передать в заголовке X-User.
       operationId: uploadFile
+      parameters:
+        - name: X-User
+          in: header
+          required: false
+          schema:
+            type: string
+            example: manager@example.com
+          description: Пользователь, выполнивший загрузку. Если не передан, сохраняется значение unknown.
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
+              required: [type, file]
               properties:
                 type:
                   type: string
@@ -25,38 +50,29 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: CSV-файл с разделителем ; (кодировка UTF-8)
+                  description: CSV-файл
       responses:
         '200':
-          description: Успешная загрузка и импорт
+          description: Файл успешно загружен
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
+                $ref: '#/components/schemas/StatusResponse'
         '400':
-          description: Ошибка валидации или парсинга
-          content:
-            text/plain:
-              schema:
-                type: string
+          $ref: '#/components/responses/BadRequestText'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowedText'
         '500':
-          description: Внутренняя ошибка сервера
-          content:
-            text/plain:
-              schema:
-                type: string
+          $ref: '#/components/responses/InternalServerErrorText'
 
   /orders:
     get:
-      summary: Получить список всех заказов
+      tags: [Orders]
+      summary: Получить список заказов
       operationId: getOrders
       responses:
         '200':
-          description: Успешный ответ
+          description: Список заказов
           content:
             application/json:
               schema:
@@ -64,55 +80,160 @@ paths:
                 items:
                   $ref: '#/components/schemas/OrderResponse'
         '500':
-          description: Ошибка сервера
+          $ref: '#/components/responses/InternalServerErrorText'
+    post:
+      tags: [Orders]
+      summary: Создать заказ
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowedText'
+        '409':
+          $ref: '#/components/responses/ConflictText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
 
   /orders/{id}:
     get:
-      summary: Получить детальную информацию о заказе по ID
+      tags: [Orders]
+      summary: Получить заказ по ID
       operationId: getOrderById
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: Числовой идентификатор заказа
+        - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Успешный ответ
+          description: Данные заказа
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderResponse'
         '404':
-          description: Заказ не найден
+          $ref: '#/components/responses/NotFoundText'
         '500':
-          description: Ошибка сервера
+          $ref: '#/components/responses/InternalServerErrorText'
 
   /orders/{id}/cost:
     get:
-      summary: Рассчитать себестоимость заказа по ID
+      tags: [Orders]
+      summary: Рассчитать себестоимость заказа
       operationId: getOrderCost
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: Числовой идентификатор заказа
+        - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Успешный расчёт
+          description: Себестоимость заказа
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CostResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
         '500':
-          description: Ошибка сервера
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /orders/{id}/changes:
+    get:
+      tags: [Orders]
+      summary: Получить историю загрузок по заказу
+      operationId: getOrderChanges
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Журнал изменений заказа
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UploadLog'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /orders/{id}/boms:
+    get:
+      tags: [Orders]
+      summary: Получить BOM-позиции заказа
+      operationId: getOrderBoms
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: BOM-позиции заказа
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BOMItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /orders/{id}/labor:
+    get:
+      tags: [Orders]
+      summary: Получить трудозатраты заказа
+      operationId: getOrderLabor
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Трудозатраты заказа
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LaborItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /orders/{id}/overhead:
+    get:
+      tags: [Orders]
+      summary: Получить накладные расходы заказа
+      operationId: getOrderOverhead
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Накладные расходы заказа
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OverheadItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
 
   /api/calculate:
     post:
-      summary: Предварительный расчёт себестоимости по трём файлам (без сохранения в БД)
+      tags: [Calculations]
+      summary: Предварительно рассчитать себестоимость по трем CSV-файлам
+      description: Выполняет расчет по BOM, Labor и Overhead без сохранения данных в БД.
       operationId: calculateFromFiles
       requestBody:
         required: true
@@ -120,71 +241,223 @@ paths:
           multipart/form-data:
             schema:
               type: object
+              required: [bom, labor, overhead]
               properties:
                 bom:
                   type: string
                   format: binary
-                  description: CSV файл состава заказа (BOM)
+                  description: CSV-файл состава заказа
                 labor:
                   type: string
                   format: binary
-                  description: CSV файл трудозатрат (Labor)
+                  description: CSV-файл трудозатрат
                 overhead:
                   type: string
                   format: binary
-                  description: CSV файл накладных расходов (Overhead)
+                  description: CSV-файл накладных расходов
       responses:
         '200':
-          description: Расчёт выполнен
+          description: Расчет выполнен
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CalculationResult'
         '400':
-          description: Ошибка парсинга или неверный формат
-          content:
-            text/plain:
+          $ref: '#/components/responses/BadRequestText'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowedText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /reports/generate:
+    post:
+      tags: [Reports]
+      summary: Запросить отчет у внешней системы 1С
+      description: Передает ID заказа во внешний сервис из переменной окружения ONEC_URL и проксирует полученный файл в ответ.
+      operationId: generateReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateReportRequest'
+      responses:
+        '200':
+          description: Файл отчета от 1С
+          headers:
+            Content-Disposition:
               schema:
                 type: string
+              description: Имя файла от внешнего сервиса
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowedText'
+        '502':
+          $ref: '#/components/responses/BadGatewayText'
         '500':
-          description: Внутренняя ошибка сервера
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /api/generate-excel:
+    post:
+      tags: [Reports]
+      summary: Сгенерировать Excel-файл отчета
+      operationId: generateExcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '200':
+          description: Excel-файл
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename=report.xlsx
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowedText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
 
   /mocks/orders:
     get:
-      summary: (Мок) Получить тестовый список заказов
+      tags: [Mocks]
+      summary: Получить тестовый список заказов
+      operationId: getMockOrders
       responses:
         '200':
-          description: Тестовый массив заказов
+          description: Тестовые заказы
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/MockOrder'
+
   /mocks/orders/{id}/cost:
     get:
-      summary: (Мок) Получить тестовую себестоимость заказа
+      tags: [Mocks]
+      summary: Получить тестовую себестоимость заказа
+      operationId: getMockOrderCost
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Тестовый объект себестоимости
+          description: Тестовая себестоимость заказа
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MockOrderCost'
 
 components:
+  parameters:
+    OrderId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Идентификатор заказа
+
+  responses:
+    BadRequestText:
+      description: Некорректный запрос
+      content:
+        text/plain:
+          schema:
+            type: string
+    NotFoundText:
+      description: Объект не найден
+      content:
+        text/plain:
+          schema:
+            type: string
+    ConflictText:
+      description: Конфликт данных
+      content:
+        text/plain:
+          schema:
+            type: string
+    MethodNotAllowedText:
+      description: Метод не поддерживается
+      content:
+        text/plain:
+          schema:
+            type: string
+    BadGatewayText:
+      description: Ошибка внешнего сервиса
+      content:
+        text/plain:
+          schema:
+            type: string
+    InternalServerErrorText:
+      description: Внутренняя ошибка сервера
+      content:
+        text/plain:
+          schema:
+            type: string
+
   schemas:
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    CreateOrderRequest:
+      type: object
+      required: [id, start_date]
+      properties:
+        id:
+          type: integer
+          example: 101
+        start_date:
+          type: string
+          format: date
+          example: '2026-03-09'
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-03-10'
+        json:
+          type: string
+          description: Статус заказа. Поле называется json из-за текущего json-тега в модели CreateOrderRequest.
+          example: Создан
+
+    CreateOrderResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        id:
+          type: integer
+          example: 101
+
     OrderResponse:
       type: object
       properties:
         id:
           type: integer
+          example: 101
         start_date:
           type: string
           format: date-time
@@ -194,42 +467,151 @@ components:
           nullable: true
         total_cost:
           type: number
-          format: float
+          format: double
+          example: 126.25
         status:
           type: string
+          example: Создан
         error_id:
           type: integer
           nullable: true
+
     CostResponse:
       type: object
       properties:
         materials:
           type: number
-          format: float
+          format: double
+          example: 80.5
         labor:
           type: number
-          format: float
+          format: double
+          example: 30
         overhead:
           type: number
-          format: float
+          format: double
+          example: 15.75
         total:
           type: number
-          format: float
+          format: double
+          example: 126.25
+
     CalculationResult:
       type: object
       properties:
         bomCost:
           type: number
-          format: float
+          format: double
+          example: 80.5
         laborCost:
           type: number
-          format: float
+          format: double
+          example: 30
         overheadCost:
           type: number
-          format: float
+          format: double
+          example: 15.75
         totalCost:
           type: number
-          format: float
+          format: double
+          example: 126.25
+
+    BOMItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_id:
+          type: integer
+        quantity:
+          type: number
+          format: double
+        unit_cost:
+          type: number
+          format: double
+        material_code:
+          type: string
+
+    LaborItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_id:
+          type: integer
+        rate:
+          type: number
+          format: double
+        hours:
+          type: number
+          format: double
+
+    OverheadItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_id:
+          type: integer
+        date:
+          type: string
+          example: '2026-03-09'
+        prod_type:
+          type: string
+        amount:
+          type: number
+          format: double
+
+    UploadLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_id:
+          type: integer
+        file_type:
+          type: string
+          enum: [boms, labor, overhead]
+        uploaded_at:
+          type: string
+          format: date-time
+        changed_by:
+          type: string
+
+    GenerateReportRequest:
+      type: object
+      required: [OrderID]
+      properties:
+        OrderID:
+          type: integer
+          description: ID заказа. Поле ожидается с таким именем, потому что в обработчике используется структура без json-тега.
+          example: 101
+
+    ReportRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        date:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportItem'
+
+    ReportItem:
+      type: object
+      properties:
+        order:
+          type: string
+          example: '101'
+        type:
+          type: string
+          example: materials
+        sum:
+          type: number
+          format: double
+          example: 80.5
+
     MockOrder:
       type: object
       properties:
@@ -237,10 +619,10 @@ components:
           type: integer
         start_date:
           type: string
-          example: "09-03-2026"
+          example: 09-03-2026
         end_date:
           type: string
-          example: "10-03-2026"
+          example: 10-03-2026
         total_cost:
           type: integer
         status:
@@ -248,6 +630,7 @@ components:
         error_id:
           type: integer
           nullable: true
+
     MockOrderCost:
       type: object
       properties:
@@ -255,13 +638,13 @@ components:
           type: integer
         materials:
           type: number
-          format: float
+          format: double
         labor:
           type: number
-          format: float
+          format: double
         overhead:
           type: number
-          format: float
+          format: double
         total:
           type: number
-          format: float
+          format: double

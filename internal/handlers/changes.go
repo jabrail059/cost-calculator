@@ -5,14 +5,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/storage"
 )
 
 func GetOrderChangesHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	IdStr := vars["id"]
+	IdStr := chi.URLParam(r, "id")
 	Id, err := strconv.Atoi(IdStr)
 	if err != nil {
 		http.Error(w, "Не удалось получить ", http.StatusBadRequest)

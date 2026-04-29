@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/parser"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/storage"
@@ -214,8 +214,7 @@ func GetOrdersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOrderByIdHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := chi.URLParam(r, "id")
 	rows := storage.DB().QueryRow("select id, start_date, end_date, total_cost, status, error_id from orders where id = $1", id)
 	order := models.OrderResponse{}
 	err := rows.Scan(&order.Id, &order.StartDate, &order.EndDate, &order.TotalCost, &order.Status, &order.ErrorId)
@@ -232,8 +231,8 @@ func GetOrderByIdHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOrderCostHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Неверный формат идентификатора заказа", http.StatusBadRequest)
 		return
@@ -375,8 +374,8 @@ func CalculateFromFilesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOrderBOMsHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Неверный идентификатор заказа", http.StatusBadRequest)
 		return
@@ -405,8 +404,8 @@ func GetOrderBOMsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOrderLaborHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Неверный идентификатор заказа", http.StatusBadRequest)
 		return
@@ -435,8 +434,8 @@ func GetOrderLaborHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOrderOverheadHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Неверный идентификатор заказа", http.StatusBadRequest)
 		return
@@ -512,5 +511,5 @@ func CreateOrderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "id": req.ID})
+	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "id": req.ID})
 }
