@@ -41,7 +41,7 @@ func main() {
 	r.With(middleware.AuthMiddleware).Post("/orders", handlers.CreateOrderHandler)
 
 	r.Get("/orders/{id}", handlers.GetOrderByIdHandler)
-	r.Get("/orders/{id}/cost", handlers.GetOrderCostHandler)
+	r.Get("/orders/{id}/cost/{method}", handlers.GetOrderCostHandler)
 	r.Get("/orders/{id}/changes", handlers.GetOrderChangesHandler)
 
 	r.With(middleware.AuthMiddleware).Post("/api/calculate", handlers.CalculateFromFilesHandler)
@@ -51,13 +51,13 @@ func main() {
 	r.Get("/orders/{id}/overhead", handlers.GetOrderOverheadHandler)
 
 	r.With(middleware.AuthMiddleware).Post("/reports/generate", handlers.GenerateReportHandler)
-	r.With(middleware.AuthMiddleware).Post("/api/generate-excel", handlers.GenerateExcelHandler)
+	r.With(middleware.AuthMiddleware).Get("/reports/{id}/excel", handlers.DownloadReportExcelHandler)
 
 	r.Post("/api/auth/register", handlers.RegisterHandler)
 	r.Post("/api/auth/login", handlers.LoginHandler)
 
-	r.HandleFunc("/mocks/orders", handlers.MockOrdersHandler)
-	r.HandleFunc("/mocks/orders/{id:[0-9]+}/cost", handlers.MockOrderCostHandler)
+	r.Get("/mocks/orders", handlers.MockOrdersHandler)
+	r.Get("/mocks/orders/{id}/cost", handlers.MockOrderCostHandler)
 
 	r.Handle("/*", http.FileServer(http.Dir("./web")))
 	log.Println("Server is listening...")

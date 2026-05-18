@@ -10,14 +10,13 @@ import (
 	"time"
 
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
-	"gitverse.ru/topit/12-40_team20_Zueva/internal/storage"
 )
 
 func ParseBOM(path string) ([]models.BOMItem, error) {
 	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, &storage.CSVError{
+		return nil, &models.CSVError{
 			FileName: fileName,
 			Row:      0,
 			Column:   "",
@@ -38,7 +37,7 @@ func ParseBOM(path string) ([]models.BOMItem, error) {
 			return items, nil
 		}
 		if err != nil {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      0,
 				Column:   "",
@@ -51,7 +50,7 @@ func ParseBOM(path string) ([]models.BOMItem, error) {
 		}
 
 		if len(record) != 4 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
@@ -60,7 +59,7 @@ func ParseBOM(path string) ([]models.BOMItem, error) {
 		}
 		order_id, err := strconv.Atoi(record[0])
 		if err != nil || order_id <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
@@ -69,7 +68,7 @@ func ParseBOM(path string) ([]models.BOMItem, error) {
 		}
 		quantity, err := strconv.ParseFloat(record[1], 64)
 		if err != nil || quantity <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Quantity",
@@ -78,7 +77,7 @@ func ParseBOM(path string) ([]models.BOMItem, error) {
 		}
 		unitCost, err := strconv.ParseFloat(record[2], 64)
 		if err != nil || unitCost <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "UnitCost",
@@ -99,7 +98,7 @@ func ParseOverhead(path string) ([]models.OverheadItem, error) {
 	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, &storage.CSVError{
+		return nil, &models.CSVError{
 			FileName: fileName,
 			Row:      0,
 			Column:   "",
@@ -119,7 +118,7 @@ func ParseOverhead(path string) ([]models.OverheadItem, error) {
 			return items, nil
 		}
 		if err != nil {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      0,
 				Column:   "",
@@ -130,27 +129,18 @@ func ParseOverhead(path string) ([]models.OverheadItem, error) {
 		if i == 0 {
 			continue
 		}
-		if len(record) != 4 {
-			return nil, &storage.CSVError{
+		if len(record) != 3 {
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
 				Cause:    "Неккоректное число полей!",
 			}
 		}
-		order_id, err := strconv.Atoi(record[0])
-		if err != nil || order_id <= 0 {
-			return nil, &storage.CSVError{
-				FileName: fileName,
-				Row:      i + 1,
-				Column:   "OrderId",
-				Cause:    "Некорректное OrderId",
-			}
-		}
 
-		err = ValidateDate(record[1])
+		err = ValidateDate(record[0])
 		if err != nil {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Date",
@@ -158,9 +148,9 @@ func ParseOverhead(path string) ([]models.OverheadItem, error) {
 			}
 		}
 
-		amount, err := strconv.ParseFloat(record[3], 64)
+		amount, err := strconv.ParseFloat(record[2], 64)
 		if err != nil || amount <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Amount",
@@ -168,9 +158,8 @@ func ParseOverhead(path string) ([]models.OverheadItem, error) {
 			}
 		}
 		item := models.OverheadItem{
-			OrderID:  order_id,
-			Date:     record[1],
-			ProdType: record[2],
+			Date:     record[0],
+			ProdType: record[1],
 			Amount:   amount,
 		}
 		items = append(items, item)
@@ -181,7 +170,7 @@ func ParseLabor(path string) ([]models.LaborItem, error) {
 	fileName := filepath.Base(path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, &storage.CSVError{
+		return nil, &models.CSVError{
 			FileName: fileName,
 			Row:      0,
 			Column:   "",
@@ -201,7 +190,7 @@ func ParseLabor(path string) ([]models.LaborItem, error) {
 			return items, nil
 		}
 		if err != nil {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      0,
 				Column:   "",
@@ -213,7 +202,7 @@ func ParseLabor(path string) ([]models.LaborItem, error) {
 			continue
 		}
 		if len(record) != 3 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "",
@@ -222,7 +211,7 @@ func ParseLabor(path string) ([]models.LaborItem, error) {
 		}
 		order_id, err := strconv.Atoi(record[0])
 		if err != nil || order_id <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "OrderId",
@@ -231,7 +220,7 @@ func ParseLabor(path string) ([]models.LaborItem, error) {
 		}
 		rate, err := strconv.ParseFloat(record[1], 64)
 		if err != nil || rate <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Rate",
@@ -240,7 +229,7 @@ func ParseLabor(path string) ([]models.LaborItem, error) {
 		}
 		hours, err := strconv.ParseFloat(record[2], 64)
 		if err != nil || hours <= 0 {
-			return nil, &storage.CSVError{
+			return nil, &models.CSVError{
 				FileName: fileName,
 				Row:      i + 1,
 				Column:   "Hours",

@@ -1,0 +1,1 @@
+ALTER TABLE overhead ALTER COLUMN order_id SET NOT NULL;

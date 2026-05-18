@@ -273,7 +273,7 @@ paths:
     post:
       tags: [Reports]
       summary: Запросить отчет у внешней системы 1С
-      description: Передает ID заказа во внешний сервис из переменной окружения ONEC_URL и проксирует полученный файл в ответ.
+      description: Берет сохраненный расчет по calculation_id, отправляет его в 1С, сохраняет ответ 1С и возвращает Excel-файл.
       operationId: generateReport
       requestBody:
         required: true
@@ -499,6 +499,9 @@ components:
     CalculationResult:
       type: object
       properties:
+        calculationId:
+          type: integer
+          example: 1
         bomCost:
           type: number
           format: double
@@ -580,12 +583,12 @@ components:
 
     GenerateReportRequest:
       type: object
-      required: [OrderID]
+      required: [calculation_id]
       properties:
-        OrderID:
+        calculation_id:
           type: integer
-          description: ID заказа. Поле ожидается с таким именем, потому что в обработчике используется структура без json-тега.
-          example: 101
+          description: ID сохраненного расчета.
+          example: 1
 
     ReportRequest:
       type: object
