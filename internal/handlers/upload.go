@@ -42,7 +42,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
-	err := r.ParseMultipartForm(10 << 20)
+	err := r.ParseMultipartForm(handlerConfig.UploadMaxMemory)
 	if err != nil {
 		http.Error(w, "Ошибка парсинга формы "+err.Error(), http.StatusInternalServerError)
 		return

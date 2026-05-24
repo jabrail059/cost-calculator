@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 78552306
-      POSTGRES_DB: proddb
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-proddb}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -17,17 +17,25 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
+      - "${API_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      SERVER_ADDR: :8080
+      FRONTEND_API_ADDR: :3000
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 78552306
-      DB_NAME: proddb
-      ONEC_URL: "http://onec-server:8080/generate"
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:-proddb}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ONEC_URL: ${ONEC_URL:-http://onec-server:8080/generate}
+      ONEC_TIMEOUT: ${ONEC_TIMEOUT:-30s}
+      UPLOAD_MAX_MEMORY: ${UPLOAD_MAX_MEMORY:-10485760}
+      WEB_DIR: ${WEB_DIR:-./web}
     volumes:
       - ./migrations:/migrations
 

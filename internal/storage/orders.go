@@ -32,6 +32,48 @@ func GetOrders() ([]models.OrderResponse, error) {
 	return orders, nil
 }
 
+func GetUploadLogs() ([]models.Log, error) {
+	rows, err := db.Query("select id, order_id, file_type, uploaded_at, changed_by FROM upload_log ORDER BY uploaded_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	logs := []models.Log{}
+	for rows.Next() {
+		logItem := models.Log{}
+		if err := rows.Scan(&logItem.Id, &logItem.OrderID, &logItem.Filetype, &logItem.UploadedAt, &logItem.ChangedBy); err != nil {
+			return nil, err
+		}
+		logs = append(logs, logItem)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func GetOrderFileNames(orderID int) ([]string, error) {
+	rows, err := db.Query("select file_type from upload_log where order_id = $1 order by uploaded_at desc", orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	files := []string{}
+	for rows.Next() {
+		var fileType string
+		if err := rows.Scan(&fileType); err != nil {
+			return nil, err
+		}
+		files = append(files, fileType+".csv")
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
 func GetOrderByID(id int) (*models.OrderResponse, error) {
 	order := models.OrderResponse{}
 	err := db.QueryRow("select id, start_date, end_date, total_cost, status, error_id from orders where id = $1", id).
@@ -265,7 +307,7 @@ func DistributeOverhead(orderID int, method string) (float64, error) {
 
 	rowsOrders, err := db.Query(`
         SELECT id FROM orders 
-        WHERE end_date >= $1 AND end_date < $2
+        WHERE COALESCE(end_date, start_date) >= $1 AND COALESCE(end_date, start_date) < $2
     `, startOfMonth, endOfMonth)
 	if err != nil {
 		return 0, fmt.Errorf("ошибка получения заказов периода: %w", err)

@@ -1,7 +1,8 @@
-openapi: 3.0.0
+openapi: 3.0.3
+
 info:
   title: Расчет себестоимости при позаказном производстве
-  description: API для загрузки CSV, расчета себестоимости, работы с заказами и формирования отчетов.
+  description: API для загрузки CSV, расчета себестоимости, работы с заказами, авторизации и формирования отчетов.
   version: 1.0.0
 
 servers:
@@ -9,32 +10,78 @@ servers:
     description: Локальный сервер
 
 tags:
+  - name: Auth
+    description: Регистрация и авторизация пользователей
   - name: Uploads
     description: Загрузка CSV-файлов
   - name: Orders
     description: Заказы и данные по заказам
   - name: Calculations
-    description: Расчеты без сохранения в БД
+    description: Расчеты по CSV-файлам
   - name: Reports
-    description: Формирование отчетов
+    description: Формирование и скачивание отчетов
   - name: Mocks
     description: Тестовые данные
 
 paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Зарегистрировать пользователя
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEntityResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '409':
+          $ref: '#/components/responses/ConflictText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Получить JWT-токен
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Авторизация выполнена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/UnauthorizedText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
   /upload:
     post:
       tags: [Uploads]
       summary: Загрузить CSV-файл в базу данных
-      description: Загружает один CSV-файл типа BOM, Labor или Overhead. Имя пользователя для журнала изменений можно передать в заголовке X-User.
+      description: Загружает один CSV-файл типа boms, labor или overhead. Требуется JWT-токен.
       operationId: uploadFile
-      parameters:
-        - name: X-User
-          in: header
-          required: false
-          schema:
-            type: string
-            example: manager@example.com
-          description: Пользователь, выполнивший загрузку. Если не передан, сохраняется значение unknown.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -60,6 +107,8 @@ paths:
                 $ref: '#/components/schemas/StatusResponse'
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/UnauthorizedText'
         '405':
           $ref: '#/components/responses/MethodNotAllowedText'
         '500':
@@ -85,6 +134,8 @@ paths:
       tags: [Orders]
       summary: Создать заказ
       operationId: createOrder
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -97,11 +148,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateOrderResponse'
+                $ref: '#/components/schemas/CreateEntityResponse'
         '400':
           $ref: '#/components/responses/BadRequestText'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowedText'
+        '401':
+          $ref: '#/components/responses/UnauthorizedText'
         '409':
           $ref: '#/components/responses/ConflictText'
         '500':
@@ -121,18 +172,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
         '404':
           $ref: '#/components/responses/NotFoundText'
         '500':
           $ref: '#/components/responses/InternalServerErrorText'
 
-  /orders/{id}/cost:
+  /orders/{id}/cost/{method}:
     get:
       tags: [Orders]
       summary: Рассчитать себестоимость заказа
       operationId: getOrderCost
       parameters:
         - $ref: '#/components/parameters/OrderId'
+        - name: method
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [bom, labor]
+          description: Метод распределения накладных расходов
       responses:
         '200':
           description: Себестоимость заказа
@@ -232,9 +292,11 @@ paths:
   /api/calculate:
     post:
       tags: [Calculations]
-      summary: Предварительно рассчитать себестоимость по трем CSV-файлам
-      description: Выполняет расчет по BOM, Labor и Overhead без сохранения данных в БД.
+      summary: Рассчитать себестоимость по трем CSV-файлам
+      description: Выполняет расчет по BOM, Labor и Overhead, сохраняет расчет и возвращает его ID. Требуется JWT-токен.
       operationId: calculateFromFiles
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -264,6 +326,8 @@ paths:
                 $ref: '#/components/schemas/CalculationResult'
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/UnauthorizedText'
         '405':
           $ref: '#/components/responses/MethodNotAllowedText'
         '500':
@@ -273,8 +337,10 @@ paths:
     post:
       tags: [Reports]
       summary: Запросить отчет у внешней системы 1С
-      description: Берет сохраненный расчет по calculation_id, отправляет его в 1С, сохраняет ответ 1С и возвращает Excel-файл.
+      description: Берет сохраненный расчет, отправляет его в 1С, сохраняет ответ и возвращает Excel-файл. Требуется JWT-токен.
       operationId: generateReport
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -283,12 +349,16 @@ paths:
               $ref: '#/components/schemas/GenerateReportRequest'
       responses:
         '200':
-          description: Файл отчета от 1С
+          description: Excel-файл отчета
           headers:
             Content-Disposition:
               schema:
                 type: string
-              description: Имя файла от внешнего сервиса
+                example: attachment; filename=report.xlsx
+            X-Report-ID:
+              schema:
+                type: integer
+              description: ID сохраненного отчета
           content:
             application/octet-stream:
               schema:
@@ -296,6 +366,10 @@ paths:
                 format: binary
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/UnauthorizedText'
+        '404':
+          $ref: '#/components/responses/NotFoundText'
         '405':
           $ref: '#/components/responses/MethodNotAllowedText'
         '502':
@@ -303,20 +377,24 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerErrorText'
 
-  /api/generate-excel:
-    post:
+  /reports/{id}/excel:
+    get:
       tags: [Reports]
-      summary: Сгенерировать Excel-файл отчета
-      operationId: generateExcel
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReportRequest'
+      summary: Скачать Excel-файл сохраненного отчета
+      operationId: downloadReportExcel
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: ID отчета
       responses:
         '200':
-          description: Excel-файл
+          description: Excel-файл отчета
           headers:
             Content-Disposition:
               schema:
@@ -329,8 +407,10 @@ paths:
                 format: binary
         '400':
           $ref: '#/components/responses/BadRequestText'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowedText'
+        '401':
+          $ref: '#/components/responses/UnauthorizedText'
+        '404':
+          $ref: '#/components/responses/NotFoundText'
         '500':
           $ref: '#/components/responses/InternalServerErrorText'
 
@@ -363,8 +443,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MockOrderCost'
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '404':
+          $ref: '#/components/responses/NotFoundText'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
     OrderId:
       name: id
@@ -378,6 +468,12 @@ components:
   responses:
     BadRequestText:
       description: Некорректный запрос
+      content:
+        text/plain:
+          schema:
+            type: string
+    UnauthorizedText:
+      description: Требуется авторизация или передан неверный токен
       content:
         text/plain:
           schema:
@@ -414,6 +510,19 @@ components:
             type: string
 
   schemas:
+    AuthRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: password123
+
     StatusResponse:
       type: object
       properties:
@@ -421,9 +530,29 @@ components:
           type: string
           example: ok
 
+    CreateEntityResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        id:
+          type: integer
+          example: 101
+
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        token:
+          type: string
+          description: JWT-токен для заголовка Authorization: Bearer {token}
+
     CreateOrderRequest:
       type: object
-      required: [id, start_date]
+      required: [id, start_date, status]
       properties:
         id:
           type: integer
@@ -437,20 +566,9 @@ components:
           format: date
           nullable: true
           example: '2026-03-10'
-        json:
-          type: string
-          description: Статус заказа. Поле называется json из-за текущего json-тега в модели CreateOrderRequest.
-          example: Создан
-
-    CreateOrderResponse:
-      type: object
-      properties:
         status:
           type: string
-          example: ok
-        id:
-          type: integer
-          example: 101
+          example: created
 
     OrderResponse:
       type: object
@@ -471,7 +589,7 @@ components:
           example: 126.25
         status:
           type: string
-          example: Создан
+          example: created
         error_id:
           type: integer
           nullable: true
@@ -587,7 +705,11 @@ components:
       properties:
         calculation_id:
           type: integer
-          description: ID сохраненного расчета.
+          description: ID сохраненного расчета
+          example: 1
+        calculationId:
+          type: integer
+          description: Альтернативное имя поля, которое также поддерживается сервером
           example: 1
 
     ReportRequest:

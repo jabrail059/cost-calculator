@@ -47,3 +47,30 @@ func SaveError(csvErr *models.CSVError) error {
 		fmt.Sprintf("Строка: %s, Столбец: %s", strconv.Itoa(csvErr.Row), csvErr.Column))
 	return err
 }
+
+type ErrorLog struct {
+	ID           int    `json:"id"`
+	Info         string `json:"info"`
+	RowAndColumn string `json:"row_and_column"`
+}
+
+func GetErrors() ([]ErrorLog, error) {
+	rows, err := db.Query("select error_id, cause, row_and_column from errors order by error_id desc")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	errors := []ErrorLog{}
+	for rows.Next() {
+		item := ErrorLog{}
+		if err := rows.Scan(&item.ID, &item.Info, &item.RowAndColumn); err != nil {
+			return nil, err
+		}
+		errors = append(errors, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return errors, nil
+}

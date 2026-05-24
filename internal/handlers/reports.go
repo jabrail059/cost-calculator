@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/xuri/excelize/v2"
@@ -51,8 +49,7 @@ func GenerateReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url := os.Getenv("ONEC_URL")
-	if url == "" {
+	if handlerConfig.OneCURL == "" {
 		http.Error(w, "Не задан URL 1С", http.StatusBadRequest)
 		return
 	}
@@ -63,7 +60,7 @@ func GenerateReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(jsonData))
+	httpReq, err := http.NewRequest("POST", handlerConfig.OneCURL, bytes.NewReader(jsonData))
 	if err != nil {
 		http.Error(w, "Ошибка создания запроса к 1С", http.StatusInternalServerError)
 		return
@@ -74,7 +71,7 @@ func GenerateReportHandler(w http.ResponseWriter, r *http.Request) {
 		httpReq.Header.Set("Authorization", authHeader)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: handlerConfig.OneCTimeout}
 	status, err := client.Do(httpReq)
 	if err != nil {
 		http.Error(w, "Ошибка соединения с 1С", http.StatusBadGateway)
