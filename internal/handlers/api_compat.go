@@ -1,16 +1,20 @@
 package handlers
 
 import (
-	"encoding/json"
+	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
+	"gitverse.ru/topit/12-40_team20_Zueva/internal/parser"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/storage"
+	"gitverse.ru/topit/12-40_team20_Zueva/internal/utils"
 )
 
 type frontendFile struct {
@@ -116,7 +120,124 @@ func CreateAPIOrderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := saveFrontendOrderFiles(r, id); err != nil {
+		writeJSONError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]any{"status": "ok", "id": id})
+}
+
+func saveFrontendOrderFiles(r *http.Request, orderID int) error {
+	type uploadFile struct {
+		field string
+		kind  string
+	}
+	files := []uploadFile{
+		{field: "file_0", kind: "boms"},
+		{field: "file_1", kind: "labor"},
+		{field: "file_2", kind: "overhead"},
+	}
+
+	changedBy := "frontend"
+	if user := strings.TrimSpace(r.Header.Get("X-User")); user != "" {
+		changedBy = user
+	}
+
+	for _, fileInfo := range files {
+		file, _, err := r.FormFile(fileInfo.field)
+		if errors.Is(err, http.ErrMissingFile) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read %s file: %w", fileInfo.kind, err)
+		}
+
+		temp, err := os.CreateTemp("", "*")
+		if err != nil {
+			file.Close()
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		tempName := temp.Name()
+
+		_, copyErr := io.Copy(temp, file)
+		closeErr := temp.Close()
+		file.Close()
+		defer os.Remove(tempName)
+		if copyErr != nil {
+			return fmt.Errorf("failed to copy %s file: %w", fileInfo.kind, copyErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("failed to close %s file: %w", fileInfo.kind, closeErr)
+		}
+
+		if err := saveParsedOrderFile(tempName, fileInfo.kind, orderID, changedBy); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func saveParsedOrderFile(path string, kind string, orderID int, changedBy string) error {
+	switch kind {
+	case "boms":
+		items, err := parser.ParseBOM(path)
+		if err != nil {
+			return err
+		}
+		if err := ensureOrderID(orderID, utils.ExtractOrderIds(items)); err != nil {
+			return err
+		}
+		return DoTransactions(func(tx *sql.Tx) error {
+			if err := storage.InsertBOMItems(tx, items); err != nil {
+				return err
+			}
+			return storage.SaveUploadLog(tx, []int{orderID}, kind, changedBy)
+		})
+	case "labor":
+		items, err := parser.ParseLabor(path)
+		if err != nil {
+			return err
+		}
+		if err := ensureOrderID(orderID, utils.ExtractOrderIds(items)); err != nil {
+			return err
+		}
+		return DoTransactions(func(tx *sql.Tx) error {
+			if err := storage.InsertLaborItems(tx, items); err != nil {
+				return err
+			}
+			return storage.SaveUploadLog(tx, []int{orderID}, kind, changedBy)
+		})
+	case "overhead":
+		items, err := parser.ParseOverhead(path)
+		if err != nil {
+			return err
+		}
+		for i := range items {
+			if items[i].OrderID == nil {
+				id := orderID
+				items[i].OrderID = &id
+			}
+		}
+		return DoTransactions(func(tx *sql.Tx) error {
+			if err := storage.InsertOverheadItems(tx, items); err != nil {
+				return err
+			}
+			return storage.SaveUploadLog(tx, []int{orderID}, kind, changedBy)
+		})
+	default:
+		return fmt.Errorf("unsupported file type %s", kind)
+	}
+}
+
+func ensureOrderID(orderID int, ids []int) error {
+	for _, id := range ids {
+		if id != orderID {
+			return fmt.Errorf("file contains order_id %d, expected %d", id, orderID)
+		}
+	}
+	return nil
 }
 
 func GetAPIHistoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -161,17 +282,13 @@ func GetAPIErrorsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GenerateAPIReportHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		OrderID string `json:"orderId"`
+	report, err := requestAllOrdersReportFromOneC()
+	if err != nil {
+		writeOneCError(w, err)
+		return
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	reportData := []models.ReportItem{{
-		Order: req.OrderID,
-		Type:  "total",
-		Sum:   0,
-	}}
-	file, err := generateExcel(reportData)
+	file, err := generateExcel(report.Date)
 	if err != nil {
 		writeJSONError(w, "failed to create Excel file", http.StatusInternalServerError)
 		return
@@ -182,6 +299,40 @@ func GenerateAPIReportHandler(w http.ResponseWriter, r *http.Request) {
 	if err := file.Write(w); err != nil {
 		http.Error(w, "failed to create Excel", http.StatusInternalServerError)
 	}
+}
+
+func requestAllOrdersReportFromOneC() (models.ReportRequest, error) {
+	if strings.TrimSpace(handlerConfig.OneCURL) == "" {
+		return buildLocalOrdersReport()
+	}
+
+	return requestEmptyReportFromOneC()
+}
+
+func buildLocalOrdersReport() (models.ReportRequest, error) {
+	orders, err := storage.GetOrders()
+	if err != nil {
+		return models.ReportRequest{}, err
+	}
+
+	items := make([]models.ReportItem, 0, len(orders)*4)
+	for _, order := range orders {
+		cost, err := storage.CalculateCost(order.Id, "bom")
+		if err != nil {
+			return models.ReportRequest{}, err
+		}
+		orderID := strconv.Itoa(order.Id)
+		items = append(items,
+			models.ReportItem{Order: orderID, Type: "Материалы", Sum: cost.Materials},
+			models.ReportItem{Order: orderID, Type: "Труд", Sum: cost.Labor},
+			models.ReportItem{Order: orderID, Type: "Накладные", Sum: cost.Overhead},
+			models.ReportItem{Order: orderID, Type: "Себестоимость", Sum: cost.Total},
+		)
+	}
+	return models.ReportRequest{
+		Status: "local",
+		Date:   items,
+	}, nil
 }
 
 func parseFrontendOrderID(value string) (int, error) {

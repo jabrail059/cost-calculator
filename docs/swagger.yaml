@@ -1,33 +1,33 @@
-openapi: 3.0.3
+﻿openapi: 3.0.3
 
 info:
-  title: Расчет себестоимости при позаказном производстве
-  description: API для загрузки CSV, расчета себестоимости, работы с заказами, авторизации и формирования отчетов.
+  title: Р Р°СЃС‡РµС‚ СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚Рё РїСЂРё РїРѕР·Р°РєР°Р·РЅРѕРј РїСЂРѕРёР·РІРѕРґСЃС‚РІРµ
+  description: API РґР»СЏ Р·Р°РіСЂСѓР·РєРё CSV, СЂР°СЃС‡РµС‚Р° СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚Рё, СЂР°Р±РѕС‚С‹ СЃ Р·Р°РєР°Р·Р°РјРё, Р°РІС‚РѕСЂРёР·Р°С†РёРё Рё С„РѕСЂРјРёСЂРѕРІР°РЅРёСЏ РѕС‚С‡РµС‚РѕРІ.
   version: 1.0.0
 
 servers:
   - url: http://localhost:8080
-    description: Локальный сервер
+    description: Р›РѕРєР°Р»СЊРЅС‹Р№ СЃРµСЂРІРµСЂ
 
 tags:
   - name: Auth
-    description: Регистрация и авторизация пользователей
+    description: Р РµРіРёСЃС‚СЂР°С†РёСЏ Рё Р°РІС‚РѕСЂРёР·Р°С†РёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
   - name: Uploads
-    description: Загрузка CSV-файлов
+    description: Р—Р°РіСЂСѓР·РєР° CSV-С„Р°Р№Р»РѕРІ
   - name: Orders
-    description: Заказы и данные по заказам
+    description: Р—Р°РєР°Р·С‹ Рё РґР°РЅРЅС‹Рµ РїРѕ Р·Р°РєР°Р·Р°Рј
   - name: Calculations
-    description: Расчеты по CSV-файлам
+    description: Р Р°СЃС‡РµС‚С‹ РїРѕ CSV-С„Р°Р№Р»Р°Рј
   - name: Reports
-    description: Формирование и скачивание отчетов
+    description: Р¤РѕСЂРјРёСЂРѕРІР°РЅРёРµ Рё СЃРєР°С‡РёРІР°РЅРёРµ РѕС‚С‡РµС‚РѕРІ
   - name: Mocks
-    description: Тестовые данные
+    description: РўРµСЃС‚РѕРІС‹Рµ РґР°РЅРЅС‹Рµ
 
 paths:
   /api/auth/register:
     post:
       tags: [Auth]
-      summary: Зарегистрировать пользователя
+      summary: Р—Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
       operationId: registerUser
       requestBody:
         required: true
@@ -37,7 +37,7 @@ paths:
               $ref: '#/components/schemas/AuthRequest'
       responses:
         '201':
-          description: Пользователь создан
+          description: РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃРѕР·РґР°РЅ
           content:
             application/json:
               schema:
@@ -52,7 +52,7 @@ paths:
   /api/auth/login:
     post:
       tags: [Auth]
-      summary: Получить JWT-токен
+      summary: РџРѕР»СѓС‡РёС‚СЊ JWT-С‚РѕРєРµРЅ
       operationId: loginUser
       requestBody:
         required: true
@@ -62,7 +62,7 @@ paths:
               $ref: '#/components/schemas/AuthRequest'
       responses:
         '200':
-          description: Авторизация выполнена
+          description: РђРІС‚РѕСЂРёР·Р°С†РёСЏ РІС‹РїРѕР»РЅРµРЅР°
           content:
             application/json:
               schema:
@@ -77,8 +77,8 @@ paths:
   /upload:
     post:
       tags: [Uploads]
-      summary: Загрузить CSV-файл в базу данных
-      description: Загружает один CSV-файл типа boms, labor или overhead. Требуется JWT-токен.
+      summary: Р—Р°РіСЂСѓР·РёС‚СЊ CSV-С„Р°Р№Р» РІ Р±Р°Р·Сѓ РґР°РЅРЅС‹С…
+      description: Р—Р°РіСЂСѓР¶Р°РµС‚ РѕРґРёРЅ CSV-С„Р°Р№Р» С‚РёРїР° boms, labor РёР»Рё overhead. РўСЂРµР±СѓРµС‚СЃСЏ JWT-С‚РѕРєРµРЅ.
       operationId: uploadFile
       security:
         - bearerAuth: []
@@ -93,14 +93,14 @@ paths:
                 type:
                   type: string
                   enum: [boms, labor, overhead]
-                  description: Тип загружаемых данных
+                  description: РўРёРї Р·Р°РіСЂСѓР¶Р°РµРјС‹С… РґР°РЅРЅС‹С…
                 file:
                   type: string
                   format: binary
-                  description: CSV-файл
+                  description: CSV-С„Р°Р№Р»
       responses:
         '200':
-          description: Файл успешно загружен
+          description: Р¤Р°Р№Р» СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ
           content:
             application/json:
               schema:
@@ -117,11 +117,11 @@ paths:
   /orders:
     get:
       tags: [Orders]
-      summary: Получить список заказов
+      summary: РџРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє Р·Р°РєР°Р·РѕРІ
       operationId: getOrders
       responses:
         '200':
-          description: Список заказов
+          description: РЎРїРёСЃРѕРє Р·Р°РєР°Р·РѕРІ
           content:
             application/json:
               schema:
@@ -132,7 +132,7 @@ paths:
           $ref: '#/components/responses/InternalServerErrorText'
     post:
       tags: [Orders]
-      summary: Создать заказ
+      summary: РЎРѕР·РґР°С‚СЊ Р·Р°РєР°Р·
       operationId: createOrder
       security:
         - bearerAuth: []
@@ -144,7 +144,7 @@ paths:
               $ref: '#/components/schemas/CreateOrderRequest'
       responses:
         '201':
-          description: Заказ создан
+          description: Р—Р°РєР°Р· СЃРѕР·РґР°РЅ
           content:
             application/json:
               schema:
@@ -161,13 +161,13 @@ paths:
   /orders/{id}:
     get:
       tags: [Orders]
-      summary: Получить заказ по ID
+      summary: РџРѕР»СѓС‡РёС‚СЊ Р·Р°РєР°Р· РїРѕ ID
       operationId: getOrderById
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Данные заказа
+          description: Р”Р°РЅРЅС‹Рµ Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -182,7 +182,7 @@ paths:
   /orders/{id}/cost/{method}:
     get:
       tags: [Orders]
-      summary: Рассчитать себестоимость заказа
+      summary: Р Р°СЃСЃС‡РёС‚Р°С‚СЊ СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ Р·Р°РєР°Р·Р°
       operationId: getOrderCost
       parameters:
         - $ref: '#/components/parameters/OrderId'
@@ -192,10 +192,10 @@ paths:
           schema:
             type: string
             enum: [bom, labor]
-          description: Метод распределения накладных расходов
+          description: РњРµС‚РѕРґ СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РЅР°РєР»Р°РґРЅС‹С… СЂР°СЃС…РѕРґРѕРІ
       responses:
         '200':
-          description: Себестоимость заказа
+          description: РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -208,13 +208,13 @@ paths:
   /orders/{id}/changes:
     get:
       tags: [Orders]
-      summary: Получить историю загрузок по заказу
+      summary: РџРѕР»СѓС‡РёС‚СЊ РёСЃС‚РѕСЂРёСЋ Р·Р°РіСЂСѓР·РѕРє РїРѕ Р·Р°РєР°Р·Сѓ
       operationId: getOrderChanges
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Журнал изменений заказа
+          description: Р–СѓСЂРЅР°Р» РёР·РјРµРЅРµРЅРёР№ Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -229,13 +229,13 @@ paths:
   /orders/{id}/boms:
     get:
       tags: [Orders]
-      summary: Получить BOM-позиции заказа
+      summary: РџРѕР»СѓС‡РёС‚СЊ BOM-РїРѕР·РёС†РёРё Р·Р°РєР°Р·Р°
       operationId: getOrderBoms
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: BOM-позиции заказа
+          description: BOM-РїРѕР·РёС†РёРё Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -250,13 +250,13 @@ paths:
   /orders/{id}/labor:
     get:
       tags: [Orders]
-      summary: Получить трудозатраты заказа
+      summary: РџРѕР»СѓС‡РёС‚СЊ С‚СЂСѓРґРѕР·Р°С‚СЂР°С‚С‹ Р·Р°РєР°Р·Р°
       operationId: getOrderLabor
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Трудозатраты заказа
+          description: РўСЂСѓРґРѕР·Р°С‚СЂР°С‚С‹ Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -271,13 +271,13 @@ paths:
   /orders/{id}/overhead:
     get:
       tags: [Orders]
-      summary: Получить накладные расходы заказа
+      summary: РџРѕР»СѓС‡РёС‚СЊ РЅР°РєР»Р°РґРЅС‹Рµ СЂР°СЃС…РѕРґС‹ Р·Р°РєР°Р·Р°
       operationId: getOrderOverhead
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Накладные расходы заказа
+          description: РќР°РєР»Р°РґРЅС‹Рµ СЂР°СЃС…РѕРґС‹ Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -293,10 +293,8 @@ paths:
     post:
       tags: [Calculations]
       summary: Рассчитать себестоимость по трем CSV-файлам
-      description: Выполняет расчет по BOM, Labor и Overhead, сохраняет расчет и возвращает его ID. Требуется JWT-токен.
+      description: Выполняет расчет по BOM, Labor и Overhead, учитывает overheadMethod, сохраняет расчет и возвращает его ID. JWT-токен необязателен.
       operationId: calculateFromFiles
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -317,6 +315,14 @@ paths:
                   type: string
                   format: binary
                   description: CSV-файл накладных расходов
+                overheadMethod:
+                  type: string
+                  enum: [direct_costs, labor_hours]
+                  default: direct_costs
+                  description: Метод распределения накладных расходов
+                orderNumber:
+                  type: string
+                  description: Опциональный ID заказа для расчета по конкретному заказу
       responses:
         '200':
           description: Расчет выполнен
@@ -326,8 +332,52 @@ paths:
                 $ref: '#/components/schemas/CalculationResult'
         '400':
           $ref: '#/components/responses/BadRequestText'
-        '401':
-          $ref: '#/components/responses/UnauthorizedText'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowedText'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /api/report/generate:
+    post:
+      tags: [Reports]
+      summary: Старый триггер формирования отчета через 1С
+      description: Вызывает метод 1С пустым POST с Content-Length: 0. 1С сама забирает данные через /orders и /orders/{id}/boms|labor|overhead. В ответ возвращается Excel-файл.
+      operationId: generateAPIReport
+      responses:
+        '200':
+          description: Excel-файл отчета
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '502':
+          $ref: '#/components/responses/BadGatewayJSON'
+        '500':
+          $ref: '#/components/responses/InternalServerErrorText'
+
+  /api/generate-excel:
+    post:
+      tags: [Reports]
+      summary: Сформировать Excel из JSON отчета 1С
+      description: 1С отправляет сформированный JSON отчета, сервер возвращает report.xlsx.
+      operationId: generateExcelFromOneC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '200':
+          description: Excel-файл
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequestText'
         '405':
           $ref: '#/components/responses/MethodNotAllowedText'
         '500':
@@ -337,10 +387,8 @@ paths:
     post:
       tags: [Reports]
       summary: Запросить отчет у внешней системы 1С
-      description: Берет сохраненный расчет, отправляет его в 1С, сохраняет ответ и возвращает Excel-файл. Требуется JWT-токен.
+      description: По идентификатору сохраненного расчета вызывает метод 1С пустым POST с Content-Length: 0, сохраняет ответ 1С и возвращает Excel-файл. JWT-токен необязателен.
       operationId: generateReport
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -360,30 +408,26 @@ paths:
                 type: integer
               description: ID сохраненного отчета
           content:
-            application/octet-stream:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
               schema:
                 type: string
                 format: binary
         '400':
           $ref: '#/components/responses/BadRequestText'
-        '401':
-          $ref: '#/components/responses/UnauthorizedText'
         '404':
           $ref: '#/components/responses/NotFoundText'
         '405':
           $ref: '#/components/responses/MethodNotAllowedText'
         '502':
-          $ref: '#/components/responses/BadGatewayText'
+          $ref: '#/components/responses/BadGatewayJSON'
         '500':
           $ref: '#/components/responses/InternalServerErrorText'
 
   /reports/{id}/excel:
     get:
       tags: [Reports]
-      summary: Скачать Excel-файл сохраненного отчета
+      summary: РЎРєР°С‡Р°С‚СЊ Excel-С„Р°Р№Р» СЃРѕС…СЂР°РЅРµРЅРЅРѕРіРѕ РѕС‚С‡РµС‚Р°
       operationId: downloadReportExcel
-      security:
-        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -391,10 +435,10 @@ paths:
           schema:
             type: integer
             minimum: 1
-          description: ID отчета
+          description: ID РѕС‚С‡РµС‚Р°
       responses:
         '200':
-          description: Excel-файл отчета
+          description: Excel-С„Р°Р№Р» РѕС‚С‡РµС‚Р°
           headers:
             Content-Disposition:
               schema:
@@ -407,8 +451,6 @@ paths:
                 format: binary
         '400':
           $ref: '#/components/responses/BadRequestText'
-        '401':
-          $ref: '#/components/responses/UnauthorizedText'
         '404':
           $ref: '#/components/responses/NotFoundText'
         '500':
@@ -417,11 +459,11 @@ paths:
   /mocks/orders:
     get:
       tags: [Mocks]
-      summary: Получить тестовый список заказов
+      summary: РџРѕР»СѓС‡РёС‚СЊ С‚РµСЃС‚РѕРІС‹Р№ СЃРїРёСЃРѕРє Р·Р°РєР°Р·РѕРІ
       operationId: getMockOrders
       responses:
         '200':
-          description: Тестовые заказы
+          description: РўРµСЃС‚РѕРІС‹Рµ Р·Р°РєР°Р·С‹
           content:
             application/json:
               schema:
@@ -432,13 +474,13 @@ paths:
   /mocks/orders/{id}/cost:
     get:
       tags: [Mocks]
-      summary: Получить тестовую себестоимость заказа
+      summary: РџРѕР»СѓС‡РёС‚СЊ С‚РµСЃС‚РѕРІСѓСЋ СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ Р·Р°РєР°Р·Р°
       operationId: getMockOrderCost
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Тестовая себестоимость заказа
+          description: РўРµСЃС‚РѕРІР°СЏ СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ Р·Р°РєР°Р·Р°
           content:
             application/json:
               schema:
@@ -463,47 +505,53 @@ components:
       schema:
         type: integer
         minimum: 1
-      description: Идентификатор заказа
+      description: РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РєР°Р·Р°
 
   responses:
     BadRequestText:
-      description: Некорректный запрос
+      description: РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ Р·Р°РїСЂРѕСЃ
       content:
         text/plain:
           schema:
             type: string
     UnauthorizedText:
-      description: Требуется авторизация или передан неверный токен
+      description: РўСЂРµР±СѓРµС‚СЃСЏ Р°РІС‚РѕСЂРёР·Р°С†РёСЏ РёР»Рё РїРµСЂРµРґР°РЅ РЅРµРІРµСЂРЅС‹Р№ С‚РѕРєРµРЅ
       content:
         text/plain:
           schema:
             type: string
     NotFoundText:
-      description: Объект не найден
+      description: РћР±СЉРµРєС‚ РЅРµ РЅР°Р№РґРµРЅ
       content:
         text/plain:
           schema:
             type: string
     ConflictText:
-      description: Конфликт данных
+      description: РљРѕРЅС„Р»РёРєС‚ РґР°РЅРЅС‹С…
       content:
         text/plain:
           schema:
             type: string
     MethodNotAllowedText:
-      description: Метод не поддерживается
+      description: РњРµС‚РѕРґ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ
       content:
         text/plain:
           schema:
             type: string
     BadGatewayText:
-      description: Ошибка внешнего сервиса
+      description: РћС€РёР±РєР° РІРЅРµС€РЅРµРіРѕ СЃРµСЂРІРёСЃР°
       content:
         text/plain:
           schema:
             type: string
+    BadGatewayJSON:
+      description: Ошибка внешнего сервиса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OneCError'
     InternalServerErrorText:
-      description: Внутренняя ошибка сервера
+      description: Р’РЅСѓС‚СЂРµРЅРЅСЏСЏ РѕС€РёР±РєР° СЃРµСЂРІРµСЂР°
       content:
         text/plain:
           schema:
@@ -548,7 +596,7 @@ components:
           example: ok
         token:
           type: string
-          description: JWT-токен для заголовка Authorization: Bearer {token}
+          description: JWT-С‚РѕРєРµРЅ РґР»СЏ Р·Р°РіРѕР»РѕРІРєР° Authorization: Bearer {token}
 
     CreateOrderRequest:
       type: object
@@ -705,11 +753,11 @@ components:
       properties:
         calculation_id:
           type: integer
-          description: ID сохраненного расчета
+          description: ID СЃРѕС…СЂР°РЅРµРЅРЅРѕРіРѕ СЂР°СЃС‡РµС‚Р°
           example: 1
         calculationId:
           type: integer
-          description: Альтернативное имя поля, которое также поддерживается сервером
+          description: РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅРѕРµ РёРјСЏ РїРѕР»СЏ, РєРѕС‚РѕСЂРѕРµ С‚Р°РєР¶Рµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ СЃРµСЂРІРµСЂРѕРј
           example: 1
 
     ReportRequest:
@@ -736,6 +784,33 @@ components:
           type: number
           format: double
           example: 80.5
+
+    OneCError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Ошибка соединения с 1С
+        request_url:
+          type: string
+          example: https://example/InfoBase/hs/api/generate
+        request_body:
+          type: string
+          example: ''
+        onec_status_code:
+          type: integer
+          example: 500
+        onec_status:
+          type: string
+          example: 500 Internal Server Error
+        onec_body:
+          type: string
+        cause:
+          type: string
+          example: EOF
+        timestamp:
+          type: string
+          format: date-time
 
     MockOrder:
       type: object

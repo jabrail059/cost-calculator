@@ -30,7 +30,7 @@ func InsertLaborItems(tx *sql.Tx, items []models.LaborItem) error {
 
 func InsertOverheadItems(tx *sql.Tx, items []models.OverheadItem) error {
 	for _, item := range items {
-		_, err := tx.Exec("insert into overhead(date, prod_type, amount) values($1, $2, $3)", item.Date, item.ProdType, item.Amount)
+		_, err := tx.Exec("insert into overhead(order_id, date, prod_type, amount) values($1, $2, $3, $4)", item.OrderID, item.Date, item.ProdType, item.Amount)
 		if err != nil {
 			return err
 		}

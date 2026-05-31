@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"database/sql"
+
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const anonymousUserEmail = "anonymous@local"
 
 func CreateUser(email string, passwordHash string, role string) (int, error) {
 	var id int
@@ -22,6 +26,30 @@ func GetUserEmail(email string) (*models.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func GetOrCreateAnonymousUserID() (int, error) {
+	var id int
+	err := db.QueryRow("SELECT id FROM users WHERE email=$1", anonymousUserEmail).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, err
+	}
+
+	return createAnonymousUser()
+}
+
+func createAnonymousUser() (int, error) {
+	var id int
+	err := db.QueryRow(`
+		INSERT INTO users(email, password_hash, role)
+		VALUES ($1, $2, $3)
+		ON CONFLICT(email) DO UPDATE SET email = EXCLUDED.email
+		RETURNING id
+	`, anonymousUserEmail, "anonymous", "anonymous").Scan(&id)
+	return id, err
 }
 
 func HashPassword(password string) (string, error) {

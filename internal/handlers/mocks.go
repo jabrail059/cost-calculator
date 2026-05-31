@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -14,21 +15,21 @@ func MockOrdersHandler(w http.ResponseWriter, r *http.Request) {
 		StartDate: "09-03-2026",
 		EndDate:   "10-03-2026",
 		TotalCost: 100,
-		Status:    "Р’С‹РїРѕР»РЅРµРЅ",
+		Status:    "Выполнен",
 		ErrorId:   nil,
 	}, {
 		Id:        2,
 		StartDate: "05-03-2026",
 		EndDate:   "07-03-2026",
 		TotalCost: 250,
-		Status:    "Р’ СЂР°Р±РѕС‚Рµ",
+		Status:    "В работе",
 		ErrorId:   nil,
 	}, {
 		Id:        3,
 		StartDate: "01-03-2026",
 		EndDate:   "16-03-2026",
 		TotalCost: 75,
-		Status:    "РЎРѕР·РґР°РЅ",
+		Status:    "Создан",
 		ErrorId:   nil,
 	}}
 	w.Header().Set("Content-type", "application/json")
@@ -72,4 +73,30 @@ func MockOrderCostHandler(w http.ResponseWriter, r *http.Request) {
 			Total:     141.75,
 		})
 	}
+}
+
+// MockOneCReportHandler имитирует ответ 1С. Его можно использовать в .env:
+// ONEC_URL=http://localhost:8080/mock/1c/report
+func MockOneCReportHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var calc models.CalculationResult
+	if err := json.NewDecoder(r.Body).Decode(&calc); err != nil {
+		writeJSONError(w, "Некорректные данные расчета", http.StatusBadRequest)
+		return
+	}
+
+	order := fmt.Sprintf("Расчет %d", calc.CalculationID)
+	writeJSON(w, http.StatusOK, models.ReportRequest{
+		Status: "ok",
+		Date: []models.ReportItem{
+			{Order: order, Type: "BOM", Sum: calc.BomCost},
+			{Order: order, Type: "Labor", Sum: calc.LaborCost},
+			{Order: order, Type: "Overhead", Sum: calc.OverheadCost},
+			{Order: order, Type: "Total", Sum: calc.TotalCost},
+		},
+	})
 }

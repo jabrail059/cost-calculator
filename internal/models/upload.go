@@ -11,6 +11,9 @@ func (bomId BOMItem) GetOrderId() int {
 }
 
 func (overheadId OverheadItem) GetOrderId() int {
+	if overheadId.OrderID == nil {
+		return 0
+	}
 	return *overheadId.OrderID
 }
 

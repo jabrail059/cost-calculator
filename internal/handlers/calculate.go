@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/models"
 	"gitverse.ru/topit/12-40_team20_Zueva/internal/parser"
@@ -128,6 +130,17 @@ func CalculateFromFilesHandler(w http.ResponseWriter, r *http.Request) {
 		overheadTotal += item.Amount
 	}
 
+	targetOrderID := calculationOrderID(r, bomItems, laborItems)
+	if targetOrderID != 0 {
+		bomTotal, laborTotal, overheadTotal = calculateOrderCostFromFiles(
+			targetOrderID,
+			strings.TrimSpace(r.FormValue("overheadMethod")),
+			bomItems,
+			laborItems,
+			overheadItems,
+		)
+	}
+
 	result := models.CalculationResult{
 		BomCost:      bomTotal,
 		LaborCost:    laborTotal,
@@ -135,10 +148,13 @@ func CalculateFromFilesHandler(w http.ResponseWriter, r *http.Request) {
 		TotalCost:    bomTotal + laborTotal + overheadTotal,
 	}
 
-	userID, err := userIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Не удалось определить пользователя", http.StatusUnauthorized)
-		return
+	userID, hasUser := optionalUserIDFromRequest(r)
+	if !hasUser {
+		userID, err = storage.GetOrCreateAnonymousUserID()
+		if err != nil {
+			http.Error(w, "Не удалось подготовить пользователя для сохранения расчета", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	calculationID, err := storage.CreateReportCalculation(userID, result)
@@ -150,4 +166,73 @@ func CalculateFromFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+func calculationOrderID(r *http.Request, bomItems []models.BOMItem, laborItems []models.LaborItem) int {
+	for _, field := range []string{"orderId", "orderID", "orderNumber"} {
+		if id, err := strconv.Atoi(strings.TrimSpace(r.FormValue(field))); err == nil && id > 0 {
+			return id
+		}
+	}
+
+	orderIDs := make(map[int]struct{})
+	for _, item := range bomItems {
+		orderIDs[item.OrderID] = struct{}{}
+	}
+	for _, item := range laborItems {
+		orderIDs[item.OrderID] = struct{}{}
+	}
+	if len(orderIDs) != 1 {
+		if len(bomItems) > 0 {
+			return bomItems[0].OrderID
+		}
+		if len(laborItems) > 0 {
+			return laborItems[0].OrderID
+		}
+		return 0
+	}
+	for id := range orderIDs {
+		return id
+	}
+	return 0
+}
+
+func calculateOrderCostFromFiles(orderID int, method string, bomItems []models.BOMItem, laborItems []models.LaborItem, overheadItems []models.OverheadItem) (float64, float64, float64) {
+	materialsByOrder := make(map[int]float64)
+	laborCostByOrder := make(map[int]float64)
+	laborHoursByOrder := make(map[int]float64)
+
+	for _, item := range bomItems {
+		materialsByOrder[item.OrderID] += item.Quantity * item.UnitCost
+	}
+	for _, item := range laborItems {
+		laborCostByOrder[item.OrderID] += item.Hours * item.Rate
+		laborHoursByOrder[item.OrderID] += item.Hours
+	}
+
+	var totalOverhead float64
+	for _, item := range overheadItems {
+		totalOverhead += item.Amount
+	}
+
+	var totalBase, orderBase float64
+	switch method {
+	case "labor_hours":
+		for _, hours := range laborHoursByOrder {
+			totalBase += hours
+		}
+		orderBase = laborHoursByOrder[orderID]
+	default:
+		for _, materials := range materialsByOrder {
+			totalBase += materials
+		}
+		orderBase = materialsByOrder[orderID]
+	}
+
+	var overhead float64
+	if totalBase > 0 {
+		overhead = totalOverhead * orderBase / totalBase
+	}
+
+	return materialsByOrder[orderID], laborCostByOrder[orderID], overhead
 }
